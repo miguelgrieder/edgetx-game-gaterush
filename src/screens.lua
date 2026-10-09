@@ -28,12 +28,13 @@ function M.warn(modelName)
   boxed(51, "[ENT] I KNOW")
 end
 
-function M.title(best, saveOk)
+-- sub: mode and preset (or NO SAVE)
+function M.title(best, sub)
   M.center(3, "GATERUSH", DBLSIZE)
-  M.center(21, saveOk and "TWIN-STICK FPV" or "NO SAVE")
+  M.center(21, sub)
   draw.quadIcon(27, 37)
   draw.quadIcon(100, 37)
-  M.center(34, "BEST " .. best)
+  M.center(34, best)
   M.center(46, "ENT:ARM  RTN:EXIT")
   M.center(56, "HOLD ENT: SETTINGS")
 end
@@ -43,24 +44,28 @@ for i = 1, #config.ITEMS do M.MENU[i] = config.ITEMS[i] end
 M.MENU[#M.MENU + 1] = { name = "RESET BEST", action = "reset" }
 M.MENU[#M.MENU + 1] = { name = "EXIT", action = "exit" }
 
+local PAGES = math.ceil(#M.MENU / 5)
+
 function M.settings(sel, editing, confirm)
-  local page = sel <= 5 and 1 or 2
+  local page = math.ceil(sel / 5)
   lcd.drawText(2, 1, "SETTINGS", 0)
-  lcd.drawText(90, 1, page .. "/2", 0)
+  lcd.drawText(90, 1, page .. "/" .. PAGES, 0)
   lcd.drawLine(0, 9, 127, 9, SOLID, FORCE)
   for row = 1, 5 do
     local i = (page - 1) * 5 + row
     local it, y = M.MENU[i], 2 + row * 10
+    if not it then break end
     local val = ""
     if it.key then val = config.label(it)
     elseif it.action == "reset" then val = confirm and "ENT?" or "..." end
     if i == sel and editing then val = "<" .. val .. ">" end
     lcd.drawText(4, y, it.name, 0)
-    lcd.drawText(84, y, val, 0)
+    lcd.drawText(78, y, val, 0)
     if i == sel then lcd.drawFilledRectangle(0, y - 1, 124, 9) end
   end
   lcd.drawLine(126, 11, 126, 62, SOLID, FORCE)
-  lcd.drawFilledRectangle(125, page == 1 and 11 or 37, 3, 26, FORCE)
+  local h = math.floor(52 / PAGES)
+  lcd.drawFilledRectangle(125, 11 + (page - 1) * h, 3, h, FORCE)
 end
 
 -- 21x21 box with crosshair and the stick dot, hold bar below
@@ -87,13 +92,15 @@ function M.centerSticks(holdL, holdR)
 end
 
 -- "3" "2" "1" in an 18x24 box per half, above or below the quad so it never hides it
-function M.count(n, qy)
+function M.count(n, qy, on)
   for side = 1, 2 do
-    local x = side == 1 and 23 or 88
-    local y = qy[side] > 32 and 3 or 38
-    lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
-    lcd.drawRectangle(x, y, 18, 24, FORCE)
-    draw.glyph(draw.big[n], x + 3, y + 2)
+    if on[side] then
+      local x = side == 1 and 23 or 88
+      local y = qy[side] > 32 and 3 or 38
+      lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
+      lcd.drawRectangle(x, y, 18, 24, FORCE)
+      draw.glyph(draw.big[n], x + 3, y + 2)
+    end
   end
 end
 
@@ -105,13 +112,15 @@ function M.pause()
   M.center(34, "ENT:GO RTN:QUIT")
 end
 
--- c = { time, cause, best, avg, newBest }
+-- result screen; c = { title, lines = { up to 3 }, rec, newBest }; a new best is shown in reverse video
 function M.crashed(c)
-  M.center(2, "CRASHED", DBLSIZE)
+  M.center(2, c.title, DBLSIZE)
   rule()
-  M.center(22, c.line1)
-  M.center(32, c.line2)
-  if c.newBest then boxed(42, "NEW BEST!") end
+  for i = 1, #c.lines do M.center(11 + i * 9, c.lines[i]) end
+  if c.rec then
+    M.center(47, c.rec)
+    if c.newBest then lcd.drawFilledRectangle(0, 46, 128, 9) end
+  end
   M.center(56, "[ENT] RE-ARM")
 end
 

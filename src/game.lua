@@ -1,4 +1,4 @@
--- PLAY: two tunnels, two quads, out/tolerance rule, difficulty ramp, HUD.
+-- PLAY: two tunnels, two quads, out/tolerance rule, gates, accuracy, modes, difficulty ramp, HUD.
 local config = require("config")
 local input = require("input")
 local track = require("track")
@@ -9,40 +9,54 @@ local M = {}
 
 M.K0 = 1 / 16 -- max curvature at the start (1/px)
 M.PROTECT = 30 -- ticks after GO without "out" (1.5 s)
+M.SPRINT = 1200 -- sprint length in ticks (60 s)
+M.GATE_MS = 2000 -- score bonus per gate (enduro)
 M.CAUSE = { "LEFT HAND", "RIGHT HAND", "TAIL" }
 
 M.tracks = { track.new(), track.new() }
 M.qx, M.qy = { 32, 32 }, { 32, 32 }
 M.outN = { 0, 0 }
 M.outTail = { false, false }
+M.on = { true, true } -- sides in play (practice modes use one)
 
 local XO = { 0, 65 } -- screen x offset of each half
 local floor = math.floor
 
 -- new run: tunnels at the center of each half, a few straight points ahead
-function M.spawn(seed)
+function M.spawn(now)
   local v = config.v
+  local mode = v.MODE
   M.rt = config.radius()
-  M.rt2 = M.rt * M.rt
   M.limit = floor(v.CRASH_DELAY * 2 + 0.5) -- tenths of s -> 50 ms ticks
   if M.limit < 1 then M.limit = 1 end
   M.v0 = config.SPEEDS[v.SPEED]
   M.sa = config.ACCELS[v.SPEED_ACCEL + 1] / 100
   M.ca = config.ACCELS[v.CURVE_ACCEL + 1] / 100
-  M.t = 0
-  M.v = M.v0
-  M.crashed = nil
-  M.second = -1
+  M.scroll = v.TRACK == 2
+  M.couple = (mode < 4 and v.COUPLE > 1) and v.COUPLE or nil
+  if M.couple == 4 and M.scroll then M.couple = 2 end -- upside down makes no sense when scrolling
+  M.on[1], M.on[2] = mode ~= 5, mode ~= 4
+  M.canCrash = mode == 1 or mode >= 4
+  M.seed = v.SEED > 0 and v.SEED or now % 99 + 1 -- random runs still get a seed you can replay
+  M.t, M.v, M.gates, M.accSum, M.accN, M.anim = 0, M.v0, 0, 0, 0, 0
+  M.crashed, M.finished, M.second = nil, nil, -1
   fx.cool = 0
   fx.haptic = v.HAPTIC == 1
+  draw.prepare(v.SKIN_L, v.SKIN_R)
   local mid = (input.lo + input.hi) / 2
   for side = 1, 2 do
-    local T = M.tracks[side]
-    track.reset(T, mid, mid, seed + side * 1000003, v.TRACK_LEN)
-    for _ = 1, 5 do track.step(T, M.v0, 0, input.lo, input.hi, M.rt + 3) end
-    M.outN[side] = 0
-    M.outTail[side] = false
+    track.reset(M.tracks[side], mid, mid, M.seed * 7919 + side, v.TRACK_LEN, M.rt, M.scroll)
+    M.outN[side], M.outTail[side] = 0, false
   end
+  for _ = 1, 5 do M.advance(M.v0, 0, M.rt + 3, 0) end
+end
+
+-- step the tunnels in play (the right one copies the left when the hands are coupled)
+function M.advance(v, kmax, rmin, tsec)
+  local L, R = M.tracks[1], M.tracks[2]
+  if M.on[1] then track.step(L, v, kmax, input.lo, input.hi, rmin, tsec) end
+  if M.couple then track.copy(R, L, M.couple, input.lo + input.hi)
+  elseif M.on[2] then track.step(R, v, kmax, input.lo, input.hi, rmin, tsec) end
 end
 
 function M.moveQuads()
@@ -60,34 +74,74 @@ function M.tick()
   local rmin = M.rt + 3
   local kmax = M.K0 * (1 + M.ca * tmin) * ramp
   if kmax > 1 / rmin then kmax = 1 / rmin end
-  M.kmax = kmax
-  M.v = v
+  M.kmax, M.v = kmax, v
+  M.anim = M.anim + v * 0.4 -- prop spin follows the speed
+  M.advance(v, kmax, rmin, M.t / 20)
   local anyOut = false
   for side = 1, 2 do
-    local T = M.tracks[side]
-    track.step(T, v, kmax, input.lo, input.hi, rmin)
-    local d2, behind = track.near(T, M.qx[side], M.qy[side], M.rt2)
-    if M.t > M.PROTECT and (behind or d2 > M.rt2) then
-      -- the cause is fixed when the out-episode starts (the tail passing the quad)
-      if M.outN[side] == 0 then M.outTail[side] = behind end
-      M.outN[side] = M.outN[side] + 1
-      anyOut = true
-      if M.outN[side] >= M.limit and not M.crashed then
-        M.crashed = M.outTail[side] and 3 or side
+    if M.on[side] then
+      local T = M.tracks[side]
+      local d2, behind, r = track.near(T, M.qx[side], M.qy[side] + T.cam)
+      local out = behind or d2 > r * r
+      if M.t > M.PROTECT then
+        local a = 1 - math.sqrt(d2) / r
+        M.accSum, M.accN = M.accSum + (a > 0 and a or 0), M.accN + 1
+      else
+        out = false
       end
-    else
-      M.outN[side] = 0
+      if out then
+        -- the cause is fixed when the out-episode starts (the tail passing the quad)
+        if M.outN[side] == 0 then M.outTail[side] = behind end
+        M.outN[side] = M.outN[side] + 1
+        anyOut = true
+        if M.canCrash and M.outN[side] >= M.limit and not M.crashed then
+          M.crashed, M.crashSide = M.outTail[side] and 3 or side, side
+        end
+      else
+        M.outN[side] = 0
+      end
+      -- gates: pass the gate point while inside; gates eaten by the tail or a reversing head vanish
+      local G = T.gates
+      for k = #G, 1, -1 do
+        local g = G[k]
+        local passed = not out and T.near >= g
+        if passed or g < T.tail or g > T.head then
+          if passed then
+            M.gates = M.gates + 1
+            fx.beep(1800, 30)
+          end
+          for j = k, #G do G[j] = G[j + 1] end
+        end
+      end
     end
   end
   -- the cooldown keeps running after coming back in, so flicking in and out cannot flood audio/haptic
   if anyOut then fx.alarm() end
+  if M.t >= M.SPRINT and config.v.MODE == 2 then M.finished = true end
 end
 
 function M.ms() return M.t * 50 end
+function M.acc() return M.accN > 0 and floor(100 * M.accSum / M.accN + 0.5) or 100 end
+-- record score: ms (+ gate bonus) or accuracy % in sprint
+function M.score()
+  if config.v.MODE == 2 then return M.acc() end
+  return M.ms() + M.gates * M.GATE_MS
+end
+
+-- digits of n in the 3x5 font ending at x; returns the left x
+local function number(n, x, y)
+  repeat
+    x = x - 4
+    draw.glyph(draw.digit3[n % 10], x, y)
+    n = floor(n / 10)
+  until n == 0
+  return x
+end
 
 -- m:ss in the 3x5 font; digits are recomputed only when the second changes
 local function timer()
   local s = floor(M.t / 20)
+  if config.v.MODE == 2 then s = floor((M.SPRINT - M.t + 19) / 20) end -- sprint counts down
   if s ~= M.second then
     M.second = s
     M.m, M.s10, M.s1 = floor(s / 60), floor(s % 60 / 10), s % 10
@@ -105,26 +159,54 @@ end
 
 function M.drawWorld()
   lcd.drawLine(64, 0, 64, 63, SOLID, FORCE)
-  local rt = M.rt
   for side = 1, 2 do
-    local T, xo = M.tracks[side], XO[side]
-    track.draw(T, xo, rt, M.v)
-    fx.dust(T.hx, T.hy, math.cos(T.h), math.sin(T.h), rt, xo, side == 1 and 63 or 62)
+    if M.on[side] then
+      local T, xo = M.tracks[side], XO[side]
+      track.draw(T, xo, M.v)
+      local hy = T.hy - T.cam
+      if hy >= 0 then fx.dust(T.hx, hy, math.cos(T.h), math.sin(T.h), T.r[track.idx(T.head)], xo,
+        side == 1 and 63 or 62, T.hover) end
+    end
   end
 end
 
--- out quads blink between the crash and the normal sprite every 2 frames
-function M.drawQuads(frame)
+-- out quads blink between the crash and their own sprite every 2 frames
+function M.drawQuads(frame, skip)
+  local spin = floor(M.anim) % 2 + 1
   for side = 1, 2 do
-    local out = M.outN[side] > 0
-    draw.quad(floor(M.qx[side] + 0.5) + XO[side], floor(M.qy[side] + 0.5), out and frame % 4 < 2)
+    if M.on[side] and side ~= skip then
+      local x, y = floor(M.qx[side] + 0.5) + XO[side], floor(M.qy[side] + 0.5)
+      if M.outN[side] > 0 and frame % 4 < 2 then draw.quad(x, y, true)
+      else draw.skin(side == 1 and config.v.SKIN_L or config.v.SKIN_R, x, y, spin) end
+    end
+  end
+end
+
+-- crash animation step k: the crashed quad as wreck, its four props flying off
+function M.drawDebris(k)
+  local side = M.crashSide
+  M.drawQuads(0, side)
+  local qx, qy, xo = floor(M.qx[side] + 0.5), floor(M.qy[side] + 0.5), XO[side]
+  draw.quad(qx + xo, qy, true)
+  local d = 3 + floor(k * 1.5)
+  for sx = -1, 1, 2 do
+    for sy = -1, 1, 2 do
+      local x, y = qx + sx * d, qy + sy * d
+      if x >= 1 and x <= 61 and y >= 1 and y <= 61 then lcd.drawFilledRectangle(x + xo - 1, y - 1, 2, 2, FORCE) end
+    end
   end
 end
 
 function M.drawHud()
   timer()
-  lcd.drawText(2, 56, "L", 0)
-  lcd.drawText(121, 56, "R", 0)
+  if config.v.MODE == 3 then
+    draw.glyph(draw.small["%"], 122, 2)
+    number(M.acc(), 122, 2)
+  else
+    number(M.gates, 126, 2)
+  end
+  if M.on[1] then lcd.drawText(2, 56, "L", 0) end
+  if M.on[2] then lcd.drawText(121, 56, "R", 0) end
   if M.outN[1] > 0 then lcd.drawFilledRectangle(0, 54, 9, 10) end
   if M.outN[2] > 0 then lcd.drawFilledRectangle(119, 54, 9, 10) end
 end

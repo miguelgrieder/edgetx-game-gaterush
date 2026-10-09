@@ -6,15 +6,15 @@ local game = require("game")
 local screens = require("screens")
 local fx = require("fx")
 
-local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED = 1, 2, 3, 4, 5, 6, 7, 8, 9
+local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED, WRECK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
 local state, last, acc, frame = WARN, 0, 0, 0
 local ignoreUntil = 0
 local eatEnter = false -- the ENTER release that follows a long press
-local saveOk, modelName, best = true, nil, "--:--"
+local saveOk, modelName, best, sub = true, nil, "", ""
 local sel, editing, confirm = 1, false, false
 local hold = { 0, 0 }
-local count = 0 -- countdown ticks
+local count = 0 -- countdown / crash animation ticks
 local flash = 0
 local crash = {}
 
@@ -33,8 +33,16 @@ local function isPrev(e)
   return is(e, EVT_VIRTUAL_PREV, EVT_VIRTUAL_DEC_REPT, EVT_VIRTUAL_PREV_PAGE, EVT_MINUS_BREAK)
 end
 
+-- score as shown: m:ss, or % in sprint
+local function fmt(v)
+  if config.v.MODE == 2 then return v and v .. "%" or "--%" end
+  return stats.fmt(v)
+end
+
 local function refreshBest()
-  best = stats.fmt(stats.best(config.hash()))
+  local v = config.v
+  best = v.MODE == 3 and "FREE FLIGHT" or "BEST " .. fmt(stats.best(config.hash()))
+  sub = saveOk and config.MODES[v.MODE] .. "  " .. config.PRESETS[v.PRESET] or "NO SAVE"
 end
 
 local function go(s)
@@ -49,20 +57,30 @@ local function go(s)
   if s == RESUME then count = 0 end
 end
 
+-- result screen; quit = RTN from pause (never recorded); zen runs are never recorded
 local function finish(quit)
-  local key = config.hash()
-  local ms = game.ms()
-  local newBest = false
-  if not quit then
-    newBest = stats.add(key, ms)
-    stats.save()
+  local mode, key = config.v.MODE, config.hash()
+  local time, acc, seed = stats.fmt(game.ms()), "ACC " .. game.acc() .. "%", "SEED " .. game.seed
+  local gates = "GATES " .. game.gates
+  local record = not quit and mode ~= 3
+  crash.newBest = record and stats.add(key, game.score())
+  if record then stats.save() end
+  if mode == 2 then
+    crash.title = quit and "QUIT" or "FINISH"
+    crash.lines = { acc .. "  " .. gates, seed }
+  elseif mode == 3 then
+    crash.title = "ZEN"
+    crash.lines = { "TIME " .. time .. "  " .. acc, gates .. "  " .. seed }
+  else
+    local line1 = "TIME " .. time .. "  " .. (quit and "QUIT" or game.CAUSE[game.crashed])
+    if #line1 > 21 then line1 = "TIME " .. time .. " " .. (quit and "QUIT" or game.CAUSE[game.crashed]) end
+    crash.title = quit and "QUIT" or "CRASHED"
+    crash.lines = { line1, gates .. "  " .. acc, "SCORE " .. fmt(game.score()) .. "  " .. seed }
   end
-  local cause = quit and "QUIT" or game.CAUSE[game.crashed]
-  local line1 = "TIME " .. stats.fmt(ms) .. "  " .. cause
-  if #line1 > 21 then line1 = "TIME " .. stats.fmt(ms) .. " " .. cause end
-  crash.line1 = line1
-  crash.line2 = "BEST " .. stats.fmt(stats.best(key)) .. "  AVG " .. stats.fmt(stats.avg(key))
-  crash.newBest = newBest
+  crash.rec = nil
+  if mode ~= 3 then
+    crash.rec = (crash.newBest and "NEW BEST!" or "BEST " .. fmt(stats.best(key))) .. "  AVG " .. fmt(stats.avg(key))
+  end
   flash = quit and 0 or 2
   go(CRASHED)
 end
@@ -71,6 +89,7 @@ local function leaveSettings()
   saveOk = config.save()
   input.setRange(config.radius())
   editing, confirm = false, false
+  refreshBest()
   go(TITLE)
 end
 
@@ -122,8 +141,11 @@ local function update(e, steps)
     refreshBest()
   elseif state == CENTER then
     if isExit(e) then go(TITLE) return 0 end
+    -- practice modes only need the stick of the hand in play
+    local mode = config.v.MODE
     for side = 1, 2 do
-      hold[side] = input.centered(side) and hold[side] + steps or 0
+      local used = (side == 1 and mode ~= 5) or (side == 2 and mode ~= 4)
+      hold[side] = (input.centered(side) or not used) and hold[side] + steps or 0
       if hold[side] > 10 then hold[side] = 10 end
     end
     if hold[1] >= 10 and hold[2] >= 10 then go(COUNTDOWN) end
@@ -139,8 +161,15 @@ local function update(e, steps)
     game.moveQuads()
     for _ = 1, steps do
       game.tick()
-      if game.crashed then finish(false) break end
+      if game.crashed then
+        state, count = WRECK, 0
+        break
+      end
+      if game.finished then finish(false) break end
     end
+  elseif state == WRECK then
+    count = count + steps -- props fly off for 0.6 s, then the result
+    if count >= 12 then finish(false) end
   elseif state == PAUSE then
     if isEnter(e) then go(RESUME) elseif isExit(e) then finish(true) end
   elseif state == CRASHED then
@@ -152,7 +181,7 @@ end
 local function render()
   lcd.clear()
   if state == WARN then screens.warn(modelName)
-  elseif state == TITLE then screens.title(best, saveOk)
+  elseif state == TITLE then screens.title(best, sub)
   elseif state == SETTINGS then screens.settings(sel, editing, confirm)
   elseif state == CENTER then screens.centerSticks(hold[1] / 10, hold[2] / 10)
   elseif state == CRASHED and flash == 0 then screens.crashed(crash)
@@ -160,9 +189,9 @@ local function render()
     game.drawWorld()
     if state == COUNTDOWN or state == RESUME then
       local n = 3 - math.floor(count / 20)
-      screens.count(n < 1 and 1 or n, game.qy)
+      screens.count(n < 1 and 1 or n, game.qy, game.on)
     end
-    game.drawQuads(frame)
+    if state == WRECK then game.drawDebris(count) else game.drawQuads(frame) end
     if state ~= COUNTDOWN then game.drawHud() end
     if state == PAUSE then screens.pause()
     elseif state == CRASHED then
@@ -202,7 +231,7 @@ local function run(event)
   if now < ignoreUntil then event = 0 end
   input.read(config.v.STICK_MODE)
   local r = update(event, steps)
-  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end
+  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end -- WRECK too
   render()
   return r
 end

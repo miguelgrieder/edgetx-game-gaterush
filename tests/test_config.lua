@@ -20,7 +20,7 @@ T.test("defaults and ranges", function()
   local it = c.item("TRACK_LEN")
   c.change(it, 1) T.eq(c.v.TRACK_LEN, 30)
   for _ = 1, 30 do c.change(it, 1) end
-  T.eq(c.v.TRACK_LEN, 120)
+  T.eq(c.v.TRACK_LEN, 115)
   for _ = 1, 20 do c.change(c.item("MARGIN"), -1) end
   T.eq(c.v.MARGIN, 0)
   T.eq(c.label(c.item("CRASH_DELAY")), "0.5 S")
@@ -88,4 +88,38 @@ T.test("getStickMode (EdgeTX 3.0) seeds the default, the file wins", function()
   writeSd(h, c.FILE, "STICK_MODE=3\n")
   c.load()
   T.eq(c.v.STICK_MODE, 3)
+end)
+
+T.test("presets load their values; editing a value falls back to CUSTOM or the matching preset", function()
+  local _, c = setup()
+  c.defaults()
+  T.eq(c.v.PRESET, 2)
+  local p = c.item("PRESET")
+  c.change(p, -1) -- EASY
+  T.eq(c.v.MARGIN, 3) T.eq(c.v.CRASH_DELAY, 10) T.eq(c.v.TRACK_LEN, 35)
+  c.change(p, 3) -- PRO
+  T.eq(c.v.PRESET, 4) T.eq(c.v.SPEED, 6) T.eq(c.v.CURVE_ACCEL, 8)
+  c.change(c.item("SPEED"), 1)
+  T.eq(c.v.PRESET, 5)
+  c.change(c.item("SPEED"), -1)
+  T.eq(c.v.PRESET, 4)
+  c.change(p, 1) -- CUSTOM keeps the values
+  T.eq(c.v.SPEED, 6)
+end)
+
+T.test("mode, scroll and coupling get their own records; skins and seed do not", function()
+  local _, c = setup()
+  c.defaults()
+  local base = c.hash()
+  c.v.MODE = 2
+  T.eq(c.hash(), base .. "M2")
+  c.v.TRACK, c.v.COUPLE = 2, 3
+  T.eq(c.hash(), base .. "M2SC3")
+  c.defaults()
+  c.v.SKIN_L, c.v.SKIN_R, c.v.SEED = 5, 6, 42
+  T.eq(c.hash(), base)
+  T.eq(c.label(c.item("SKIN_R")), "PLUS")
+  T.eq(c.label(c.item("SEED")), "42")
+  c.v.SEED = 0
+  T.eq(c.label(c.item("SEED")), "RANDOM")
 end)

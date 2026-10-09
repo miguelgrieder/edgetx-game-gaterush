@@ -4,21 +4,35 @@ local M = {}
 M.DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 M.FILE = M.DIR .. "gaterush.cfg"
 
--- head speed in px per 50 ms tick, by SPEED 1..5
+-- head speed in px per 50 ms tick, by SPEED 1..8
 M.SPEEDS = { 0.8, 1.1, 1.5, 2.0, 2.6, 3.2, 3.9, 4.7 }
--- growth in % per minute alive, by SPEED_ACCEL / CURVE_ACCEL 0..5 (index = value + 1)
+-- growth in % per minute alive, by SPEED_ACCEL / CURVE_ACCEL (index = value + 1)
 M.ACCELS = { 0, 45, 90, 135, 180, 240, 300, 380, 480 }
 
+M.PRESETS = { "EASY", "NORMAL", "HARD", "PRO", "CUSTOM" }
+-- MARGIN, CRASH_DELAY, SPEED, SPEED_ACCEL, CURVE_ACCEL, TRACK_LEN of each preset
+M.PRESET_V = { { 3, 10, 3, 1, 2, 35 }, { 2, 5, 4, 2, 5, 25 }, { 1, 3, 5, 3, 6, 25 }, { 0, 2, 6, 4, 8, 20 } }
+M.DIFF = { "MARGIN", "CRASH_DELAY", "SPEED", "SPEED_ACCEL", "CURVE_ACCEL", "TRACK_LEN" }
+M.MODES = { "ENDURO", "SPRINT", "ZEN", "LEFT", "RIGHT" }
+M.SKINS = { "DISC", "RING", "XFRM", "PODS", "THIN", "PLUS", "GEM", "BLADE" }
+
 -- CRASH_DELAY is stored in tenths of a second so the value stays an integer.
--- diff = part of the difficulty key
+-- names = labels by value (index = value - lo + 1)
 M.ITEMS = {
-  { key = "MARGIN", name = "MARGIN", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 50, def = 5, diff = true },
-  { key = "SPEED", name = "SPEED", lo = 1, hi = 8, def = 4, diff = true },
-  { key = "SPEED_ACCEL", name = "SPEED ACCEL", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 8, def = 5, diff = true },
-  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 120, step = 5, def = 25, diff = true },
-  { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1 },
+  { key = "PRESET", name = "PRESET", lo = 1, hi = 5, def = 2, names = M.PRESETS },
+  { key = "MODE", name = "MODE", lo = 1, hi = 5, def = 1, names = M.MODES },
+  { key = "TRACK", name = "TRACK", lo = 1, hi = 2, def = 1, names = { "FREE", "SCROLL" } },
+  { key = "COUPLE", name = "COUPLE", lo = 1, hi = 4, def = 1, names = { "OFF", "MIRROR", "COPY", "INVERT" } },
+  { key = "SEED", name = "SEED", lo = 0, hi = 99, def = 0 },
+  { key = "MARGIN", name = "MARGIN", lo = 0, hi = 5, def = 2 },
+  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 50, def = 5 },
+  { key = "SPEED", name = "SPEED", lo = 1, hi = 8, def = 4 },
+  { key = "SPEED_ACCEL", name = "SPEED ACCEL", lo = 0, hi = 5, def = 2 },
+  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 8, def = 5 },
+  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 115, step = 5, def = 25 },
+  { key = "SKIN_L", name = "LEFT QUAD", lo = 1, hi = 8, def = 1, names = M.SKINS },
+  { key = "SKIN_R", name = "RIGHT QUAD", lo = 1, hi = 8, def = 3, names = M.SKINS },
+  { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1, names = { "OFF", "ON" } },
   { key = "STICK_MODE", name = "STICK MODE", lo = 1, hi = 4, def = 2 },
 }
 
@@ -42,11 +56,28 @@ function M.item(key)
   end
 end
 
--- step the value of item it by dir (+1/-1), clamped
+-- PRESET follows the six difficulty values: the matching preset, else CUSTOM
+function M.sync()
+  M.v.PRESET = 5
+  for p = 1, 4 do
+    local same = true
+    for i = 1, 6 do if M.v[M.DIFF[i]] ~= M.PRESET_V[p][i] then same = false end end
+    if same then M.v.PRESET = p end
+  end
+end
+
+-- step the value of item it by dir (+1/-1), clamped; choosing a preset loads its values
 function M.change(it, dir)
   local nv = M.v[it.key] + dir * (it.step or 1)
   if nv < it.lo then nv = it.lo elseif nv > it.hi then nv = it.hi end
   M.v[it.key] = nv
+  if it.key == "PRESET" then
+    if nv < 5 then
+      for i = 1, 6 do M.v[M.DIFF[i]] = M.PRESET_V[nv][i] end
+    end
+  else
+    M.sync()
+  end
 end
 
 -- text shown in the settings list
@@ -54,17 +85,19 @@ function M.label(it)
   local v = M.v[it.key]
   if it.key == "MARGIN" then return v .. " PX" end
   if it.key == "CRASH_DELAY" then return math.floor(v / 10) .. "." .. (v % 10) .. " S" end
-  if it.key == "HAPTIC" then return v == 1 and "ON" or "OFF" end
+  if it.names then return it.names[v - it.lo + 1] end
+  if it.key == "SEED" and v == 0 then return "RANDOM" end
   return tostring(v)
 end
 
 function M.radius() return 4 + M.v.MARGIN end
 
--- difficulty key, e.g. m2d3s3a2c2t40
+-- record key, e.g. m2d5s4a2c5t25 (+ M2 for a mode, S for scroll, C2 for coupled hands)
 function M.hash()
   local v = M.v
   return "m" .. v.MARGIN .. "d" .. v.CRASH_DELAY .. "s" .. v.SPEED .. "a" .. v.SPEED_ACCEL
-    .. "c" .. v.CURVE_ACCEL .. "t" .. v.TRACK_LEN
+    .. "c" .. v.CURVE_ACCEL .. "t" .. v.TRACK_LEN .. (v.MODE > 1 and "M" .. v.MODE or "")
+    .. (v.TRACK > 1 and "S" or "") .. (v.COUPLE > 1 and "C" .. v.COUPLE or "")
 end
 
 -- apply "KEY=value" lines; invalid or out-of-range lines are ignored
@@ -83,6 +116,7 @@ function M.load()
   local text = io.read(f, 512)
   io.close(f)
   if text then M.parse(text) end
+  M.sync()
 end
 
 -- returns false when the file can't be written (missing GATERUSH/ folder)

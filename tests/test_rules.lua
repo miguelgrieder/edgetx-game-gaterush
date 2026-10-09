@@ -172,3 +172,95 @@ T.test("crash records the run; a better run is a NEW BEST", function()
   T.eq(h.stats.best(key), h.game.ms())
   T.eq(h.stats.rec[key][2], 1)
 end)
+
+T.test("gates: passing the gate point inside scores, gates behind the tail vanish", function()
+  local h, g = setup({ TRACK_LEN = 60 })
+  local passed = 0
+  for _ = 1, 600 do
+    follow(h, g, 0)
+    g.tick()
+    passed = g.gates
+  end
+  T.ok(passed >= 4, "gates passed " .. passed)
+  T.eq(g.score(), g.ms() + passed * g.GATE_MS)
+  -- a quad parked far away passes nothing (and CRASH_DELAY high so it lives)
+  h, g = setup({ CRASH_DELAY = 50 })
+  g.limit = 100000
+  for _ = 1, 600 do
+    g.qx[1], g.qy[1], g.qx[2], g.qy[2] = 8, 8, 8, 8
+    g.tick()
+  end
+  T.eq(g.gates, 0)
+  T.eq(#g.tracks[1].gates <= 3, true)
+end)
+
+T.test("accuracy: 100 % on the centerline, lower when offset", function()
+  local h, g = setup()
+  run(h, g, 300)
+  T.eq(g.acc(), 100)
+  h, g = setup()
+  run(h, g, 40)
+  run(h, g, 200, 3)
+  T.ok(g.acc() < 90 and g.acc() > 40, "acc " .. g.acc())
+end)
+
+T.test("sprint: never crashes, finishes at 60 s, scores accuracy", function()
+  local h, g = setup({ MODE = 2, CRASH_DELAY = 0 })
+  for _ = 1, 1200 do
+    g.qx[1], g.qy[1] = 8, 8
+    g.tick()
+  end
+  T.eq(g.crashed, nil)
+  T.eq(g.finished, true)
+  T.eq(g.score(), g.acc())
+end)
+
+T.test("zen never crashes and never finishes", function()
+  local _, g = setup({ MODE = 3, CRASH_DELAY = 0 })
+  for _ = 1, 2000 do
+    g.qx[1], g.qy[1] = 8, 8
+    g.tick()
+  end
+  T.eq(g.crashed, nil) T.eq(g.finished, nil)
+end)
+
+T.test("practice LEFT: only the left tunnel runs and only the left hand can crash", function()
+  local h, g = setup({ MODE = 4, CRASH_DELAY = 0 })
+  local head2 = g.tracks[2].head
+  for _ = 1, 200 do
+    follow(h, g, 0)
+    g.qx[2], g.qy[2] = 8, 8
+    g.tick()
+  end
+  T.eq(g.crashed, nil)
+  T.eq(g.tracks[2].head, head2)
+  run(h, g, 1, 12)
+  T.eq(g.crashed, 1)
+end)
+
+T.test("coupled hands: the right tunnel follows the left", function()
+  local h, g = setup({ COUPLE = 2 })
+  run(h, g, 300)
+  local L, R = g.tracks[1], g.tracks[2]
+  local i = h.track.idx(L.head)
+  T.near(R.x[i], h.input.lo + h.input.hi - L.x[i], 1e-9)
+  T.near(R.y[i], L.y[i], 1e-9)
+end)
+
+T.test("the same seed flies the same tunnels", function()
+  local h, g = setup({ SEED = 42 })
+  run(h, g, 300)
+  local x1 = g.tracks[1].hx
+  h, g = setup({ SEED = 42 })
+  run(h, g, 300)
+  T.near(g.tracks[1].hx, x1, 1e-9)
+  T.eq(g.seed, 42)
+end)
+
+T.test("a crash plays the wreck animation, then the result screen records the score", function()
+  local h = toPlay()
+  h.wait(60, 1024, 1024, 1024, 1024)
+  local key = h.config.hash()
+  T.ok(h.game.crashed ~= nil)
+  T.eq(h.stats.best(key), h.game.score())
+end)

@@ -13,6 +13,14 @@ function M.best(h)
   f:write("m2d5s4a2c5t25 81000 6 38000\n")
   f:close()
 end
+-- settings file for a scenario, e.g. m.cfg("MODE=2\nTRACK=2\n")
+function M.cfg(text)
+  return function(h)
+    local f = h.S.realio.open(h.S.sdroot .. "/SCRIPTS/TOOLS/GATERUSH/gaterush.cfg", "wb")
+    f:write(text)
+    f:close()
+  end
+end
 -- perfect bot after arming
 function M.bot(o)
   local Bot = dofile("tools/bot.lua")

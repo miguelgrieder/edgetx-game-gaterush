@@ -20,13 +20,14 @@ function M.beep(freq, ms)
   playTone(freq, ms, 0, PLAY_NOW)
 end
 
--- 5 specks 1..5 px beyond the head cap, re-scattered every frame
+-- 5 specks 1..5 px beyond the head cap, re-scattered every frame; a hovering head pulls
+-- 8 specks in tight (the warning before it stops and reverses)
 local seed = 1
-function M.dust(x, y, c, s, rt, xo, xmax)
-  for _ = 1, 5 do
+function M.dust(x, y, c, s, rt, xo, xmax, gather)
+  for _ = 1, gather and 8 or 5 do
     seed = (seed * 16807) % 2147483647
-    local d = rt + 1 + seed % 5
-    local a = (seed % 19 - 9) / 10 -- -0.9..0.9 rad
+    local d = rt + 1 + seed % (gather and 2 or 5)
+    local a = (seed % 19 - 9) / (gather and 3 or 10) -- spread: -0.9..0.9 rad, -3..3 when gathering
     local ca, sa = math.cos(a), math.sin(a)
     local px = math.floor(x + (c * ca - s * sa) * d + 0.5)
     local py = math.floor(y + (s * ca + c * sa) * d + 0.5)

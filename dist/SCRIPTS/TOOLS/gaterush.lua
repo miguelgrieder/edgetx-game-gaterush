@@ -9,21 +9,35 @@ local M = {}
 M.DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 M.FILE = M.DIR .. "gaterush.cfg"
 
--- head speed in px per 50 ms tick, by SPEED 1..5
+-- head speed in px per 50 ms tick, by SPEED 1..8
 M.SPEEDS = { 0.8, 1.1, 1.5, 2.0, 2.6, 3.2, 3.9, 4.7 }
--- growth in % per minute alive, by SPEED_ACCEL / CURVE_ACCEL 0..5 (index = value + 1)
+-- growth in % per minute alive, by SPEED_ACCEL / CURVE_ACCEL (index = value + 1)
 M.ACCELS = { 0, 45, 90, 135, 180, 240, 300, 380, 480 }
 
+M.PRESETS = { "EASY", "NORMAL", "HARD", "PRO", "CUSTOM" }
+-- MARGIN, CRASH_DELAY, SPEED, SPEED_ACCEL, CURVE_ACCEL, TRACK_LEN of each preset
+M.PRESET_V = { { 3, 10, 3, 1, 2, 35 }, { 2, 5, 4, 2, 5, 25 }, { 1, 3, 5, 3, 6, 25 }, { 0, 2, 6, 4, 8, 20 } }
+M.DIFF = { "MARGIN", "CRASH_DELAY", "SPEED", "SPEED_ACCEL", "CURVE_ACCEL", "TRACK_LEN" }
+M.MODES = { "ENDURO", "SPRINT", "ZEN", "LEFT", "RIGHT" }
+M.SKINS = { "DISC", "RING", "XFRM", "PODS", "THIN", "PLUS", "GEM", "BLADE" }
+
 -- CRASH_DELAY is stored in tenths of a second so the value stays an integer.
--- diff = part of the difficulty key
+-- names = labels by value (index = value - lo + 1)
 M.ITEMS = {
-  { key = "MARGIN", name = "MARGIN", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 50, def = 5, diff = true },
-  { key = "SPEED", name = "SPEED", lo = 1, hi = 8, def = 4, diff = true },
-  { key = "SPEED_ACCEL", name = "SPEED ACCEL", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 8, def = 5, diff = true },
-  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 120, step = 5, def = 25, diff = true },
-  { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1 },
+  { key = "PRESET", name = "PRESET", lo = 1, hi = 5, def = 2, names = M.PRESETS },
+  { key = "MODE", name = "MODE", lo = 1, hi = 5, def = 1, names = M.MODES },
+  { key = "TRACK", name = "TRACK", lo = 1, hi = 2, def = 1, names = { "FREE", "SCROLL" } },
+  { key = "COUPLE", name = "COUPLE", lo = 1, hi = 4, def = 1, names = { "OFF", "MIRROR", "COPY", "INVERT" } },
+  { key = "SEED", name = "SEED", lo = 0, hi = 99, def = 0 },
+  { key = "MARGIN", name = "MARGIN", lo = 0, hi = 5, def = 2 },
+  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 50, def = 5 },
+  { key = "SPEED", name = "SPEED", lo = 1, hi = 8, def = 4 },
+  { key = "SPEED_ACCEL", name = "SPEED ACCEL", lo = 0, hi = 5, def = 2 },
+  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 8, def = 5 },
+  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 115, step = 5, def = 25 },
+  { key = "SKIN_L", name = "LEFT QUAD", lo = 1, hi = 8, def = 1, names = M.SKINS },
+  { key = "SKIN_R", name = "RIGHT QUAD", lo = 1, hi = 8, def = 3, names = M.SKINS },
+  { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1, names = { "OFF", "ON" } },
   { key = "STICK_MODE", name = "STICK MODE", lo = 1, hi = 4, def = 2 },
 }
 
@@ -47,11 +61,28 @@ function M.item(key)
   end
 end
 
--- step the value of item it by dir (+1/-1), clamped
+-- PRESET follows the six difficulty values: the matching preset, else CUSTOM
+function M.sync()
+  M.v.PRESET = 5
+  for p = 1, 4 do
+    local same = true
+    for i = 1, 6 do if M.v[M.DIFF[i]] ~= M.PRESET_V[p][i] then same = false end end
+    if same then M.v.PRESET = p end
+  end
+end
+
+-- step the value of item it by dir (+1/-1), clamped; choosing a preset loads its values
 function M.change(it, dir)
   local nv = M.v[it.key] + dir * (it.step or 1)
   if nv < it.lo then nv = it.lo elseif nv > it.hi then nv = it.hi end
   M.v[it.key] = nv
+  if it.key == "PRESET" then
+    if nv < 5 then
+      for i = 1, 6 do M.v[M.DIFF[i]] = M.PRESET_V[nv][i] end
+    end
+  else
+    M.sync()
+  end
 end
 
 -- text shown in the settings list
@@ -59,17 +90,19 @@ function M.label(it)
   local v = M.v[it.key]
   if it.key == "MARGIN" then return v .. " PX" end
   if it.key == "CRASH_DELAY" then return math.floor(v / 10) .. "." .. (v % 10) .. " S" end
-  if it.key == "HAPTIC" then return v == 1 and "ON" or "OFF" end
+  if it.names then return it.names[v - it.lo + 1] end
+  if it.key == "SEED" and v == 0 then return "RANDOM" end
   return tostring(v)
 end
 
 function M.radius() return 4 + M.v.MARGIN end
 
--- difficulty key, e.g. m2d3s3a2c2t40
+-- record key, e.g. m2d5s4a2c5t25 (+ M2 for a mode, S for scroll, C2 for coupled hands)
 function M.hash()
   local v = M.v
   return "m" .. v.MARGIN .. "d" .. v.CRASH_DELAY .. "s" .. v.SPEED .. "a" .. v.SPEED_ACCEL
-    .. "c" .. v.CURVE_ACCEL .. "t" .. v.TRACK_LEN
+    .. "c" .. v.CURVE_ACCEL .. "t" .. v.TRACK_LEN .. (v.MODE > 1 and "M" .. v.MODE or "")
+    .. (v.TRACK > 1 and "S" or "") .. (v.COUPLE > 1 and "C" .. v.COUPLE or "")
 end
 
 -- apply "KEY=value" lines; invalid or out-of-range lines are ignored
@@ -88,6 +121,7 @@ function M.load()
   local text = io.read(f, 512)
   io.close(f)
   if text then M.parse(text) end
+  M.sync()
 end
 
 -- returns false when the file can't be written (missing GATERUSH/ folder)
@@ -192,9 +226,9 @@ local function rects(rows, scale)
     local row, runs = rows[y] or "", {}
     local x = 1
     while x <= #row do
-      if sub(row, x, x) == "1" then
+      if sub(row, x, x) == "1" or sub(row, x, x) == "#" then
         local x2 = x
-        while sub(row, x2 + 1, x2 + 1) == "1" do x2 = x2 + 1 end
+        while sub(row, x2 + 1, x2 + 1) == "1" or sub(row, x2 + 1, x2 + 1) == "#" do x2 = x2 + 1 end
         runs[x * 16 + x2] = true
         x = x2 + 1
       else
@@ -225,7 +259,7 @@ local F3 = {
   ["4"] = { "101", "101", "111", "001", "001" }, ["5"] = { "111", "100", "111", "001", "111" },
   ["6"] = { "111", "100", "111", "101", "111" }, ["7"] = { "111", "001", "001", "001", "001" },
   ["8"] = { "111", "101", "111", "101", "111" }, ["9"] = { "111", "101", "111", "001", "111" },
-  [":"] = { "000", "010", "000", "010", "000" },
+  [":"] = { "000", "010", "000", "010", "000" }, ["%"] = { "101", "001", "010", "100", "101" },
 }
 M.small = {}
 for k, rows in pairs(F3) do M.small[k] = rects(rows, 1) end
@@ -270,6 +304,66 @@ function M.quad(x, y, crash)
   lcd.drawLine(x - 2, y - 2, x + 2, y + 2, SOLID, FORCE)
   lcd.drawLine(x - 2, y + 2, x + 2, y - 2, SOLID, FORCE)
   lcd.drawPoint(x, y, ERASE)
+end
+
+-- selectable quads (sprite sheet #1 #2 #3 #4 #5 #10 #7 #9), same order as config.SKINS;
+-- frame 2 spins the props: full 2x2 corner props become their outer diagonal
+local SKINS = {
+  { "...###...", "..#####..", ".#.###.#.", "###.#.###", "#########", "###.#.###", ".#.###.#.", "..#####..", "...###..." },
+  { "#.......#", "..#####..", ".#.....#.", ".#.....#.", ".#..#..#.", ".#.....#.", ".#.....#.", "..#####..", "#.......#" },
+  { "##.....##", "##.#.#.##", "..#...#..", "...###...", "#..###..#", "...###...", "..#...#..", "##.#.#.##", "##.....##" },
+  { "##.....##", "##.###.##", "..#####..", ".#######.", ".#######.", ".#######.", "..#####..", "##.###.##", "##.....##" },
+  { "#.......#", ".#.....#.", "..#...#..", "...###...", "....#....", "...###...", "..#...#..", ".#.....#.", "#.......#" },
+  { "...###...", "...#.#...", "...###...", "###.#.###", "#.#####.#", "###.#.###", "...###...", "...#.#...", "...###..." },
+  { "....#....", "...###...", "..#####..", ".###.###.", "###...###", ".###.###.", "..#####..", "...###...", "....#...." },
+  { "##.....##", "###...###", ".###.###.", "..#####..", "...#.#...", "..#####..", ".###.###.", "###...###", "##.....##" },
+}
+-- the disc spins its erased X into a +
+local DISC2 = { "...#.#...", "..##.##..", ".###.###.", "####.####", "#...#...#", "####.####", ".###.###.", "..##.##..", "...#.#..." }
+
+local function spin(rows)
+  local out = {}
+  for y = 1, 9 do
+    local r = ""
+    for x = 1, 9 do
+      local c = string.sub(rows[y], x, x)
+      local cx, cy = x <= 2 and 1 or (x >= 8 and 9 or 0), y <= 2 and 1 or (y >= 8 and 9 or 0)
+      if cx > 0 and cy > 0 then
+        local full = true
+        for yy = math.min(cy, cy == 1 and 2 or 8), math.max(cy, cy == 1 and 2 or 8) do
+          for xx = math.min(cx, cx == 1 and 2 or 8), math.max(cx, cx == 1 and 2 or 8) do
+            if string.sub(rows[yy], xx, xx) ~= "#" then full = false end
+          end
+        end
+        if full and (x == cx) ~= (y == cy) then c = "." end
+      end
+      r = r .. c
+    end
+    out[y] = r
+  end
+  return out
+end
+
+-- rect lists exist only for the two skins in use (memory); call prepare() when a run starts
+M.skins = {}
+M.SKIN_COUNT = #SKINS
+function M.prepare(a, b)
+  for k in pairs(M.skins) do
+    if k ~= a and k ~= b then M.skins[k] = nil end
+  end
+  for _, n in ipairs({ a, b }) do
+    if not M.skins[n] then M.skins[n] = { rects(SKINS[n], 1), rects(n == 1 and DISC2 or spin(SKINS[n]), 1) } end
+  end
+end
+
+-- skin n at (x, y), frame 1 or 2: clear the disc under it, then the sprite
+function M.skin(n, x, y, frame)
+  if n == 1 and frame == 1 then return M.quad(x, y) end
+  for i = 1, #DISC, 4 do
+    lcd.drawFilledRectangle(x + DISC[i], y + DISC[i + 1], DISC[i + 2], DISC[i + 3], ERASE)
+  end
+  if not M.skins[n] then M.prepare(n, n) end
+  M.glyph(M.skins[n][frame], x - 4, y - 4)
 end
 
 -- 11x11 quad silhouette for the title
@@ -351,27 +445,36 @@ return M
 end)()
 
 local track = (function()
--- Tunnel: ring buffer of centerline points, head generator, tail fade, outline, distance.
+-- Tunnel: ring buffer of centerline points, maneuver-driven head (with stop/reverse and bursts),
+-- chokes with gate posts, fading tail, outline, distance. Coordinates are half-local; in scroll
+-- mode y is a world coordinate and T.cam is subtracted when drawing.
 
 local M = {}
 
 M.FADE = 9 -- points behind the tail that fade out (3 per dither age)
-M.CAP = 120 + M.FADE + 1 -- longest TRACK_LEN + fade
+M.CAP = 128 -- >= longest TRACK_LEN (115) + fade + 1; a power of two so the Lua arrays are not oversized
 M.STEP_PX = 4 -- target spacing of outline vertices
-M.MAXV = 45 -- max outline vertices per tunnel (2 lines each)
+M.MAXV = 38 -- max outline vertices per tunnel (2 lines each)
+M.MINLEN = 8 -- a reversing head never eats the tunnel below this many points
 
-local cos, sin, floor = math.cos, math.sin, math.floor
+local cos, sin, floor, pi = math.cos, math.sin, math.floor, math.pi
+
+-- maneuvers, in unlock order; UNLOCK = seconds alive before it can be picked
+local STRAIGHT, CURVE, ESS, SLALOM, ZIGZAG, BURST, HAIRPIN, STOP, SPIRAL = 1, 2, 3, 4, 5, 6, 7, 8, 9
+M.STOP, M.BURST = STOP, BURST
+M.UNLOCK = { 0, 0, 0, 5, 10, 15, 20, 25, 30 }
+M.CHOKE = { 1, 2, 2, 2, 1 } -- radius reduction along a choke; the 3rd point is the gate
 
 -- semicircle offsets for the rounded ends (-90..+90 deg around the heading)
 local CA, SA = {}, {}
 for i = 0, 8 do
-  CA[i] = cos(-math.pi / 2 + i * math.pi / 8)
-  SA[i] = sin(-math.pi / 2 + i * math.pi / 8)
+  CA[i] = cos(-pi / 2 + i * pi / 8)
+  SA[i] = sin(-pi / 2 + i * pi / 8)
 end
 
 function M.new()
-  local T = { x = {}, y = {}, c = {}, s = {} }
-  for i = 1, M.CAP do T.x[i], T.y[i], T.c[i], T.s[i] = 0, 0, 1, 0 end
+  local T = { x = {}, y = {}, c = {}, s = {}, r = {}, gates = {} }
+  for i = 1, M.CAP do T.x[i], T.y[i], T.c[i], T.s[i], T.r[i] = 0, 0, 1, 0, 6 end
   return T
 end
 
@@ -382,49 +485,145 @@ local function rnd(T)
 end
 M.rnd = rnd
 
-local function put(T, x, y, h)
+local function idx(n) return (n - 1) % M.CAP + 1 end
+M.idx = idx
+
+local function put(T, x, y, h, r)
   T.head = T.head + 1
-  local i = (T.head - 1) % M.CAP + 1
-  T.x[i], T.y[i], T.c[i], T.s[i] = x, y, cos(h), sin(h)
+  if T.head - T.tail + 1 > T.len then T.tail = T.tail + 1 end
+  local i = idx(T.head)
+  T.x[i], T.y[i], T.c[i], T.s[i], T.r[i] = x, y, cos(h), sin(h), r
   T.hx, T.hy, T.h = x, y, h
 end
 
 -- spawn at (x, y): the tail stays here until the tunnel reaches len points
-function M.reset(T, x, y, seed, len)
+function M.reset(T, x, y, seed, len, rt, scroll)
   T.seed = seed % 2147483646 + 1
-  T.len = len
-  T.head = 0
-  T.k = 0
-  T.near = 1
-  put(T, x, y, rnd(T) * 2 * math.pi)
+  T.len, T.rt, T.scroll = len, rt, scroll
+  T.head, T.tail, T.k, T.near, T.cam = 0, 1, 0, 1, 0
+  T.man, T.mt, T.m0, T.vm = STRAIGHT, 30, 30, 1 -- straight start
+  T.gt, T.gc = 50 + floor(rnd(T) * 40), 0 -- ticks to the next choke, points left in the current one
+  T.hover, T.newGate = false, nil
+  for k = #T.gates, 1, -1 do T.gates[k] = nil end
+  put(T, x, y, scroll and -pi / 2 or rnd(T) * 2 * pi, rt)
 end
 
-function M.tail(T)
-  local t = T.head - T.len + 1
-  return t < 1 and 1 or t
+function M.tail(T) return T.tail end
+
+-- choose the next maneuver among those unlocked at tsec seconds alive
+local function pick(T, tsec, kmax)
+  local n = 0
+  for m = 1, #M.UNLOCK do if tsec >= M.UNLOCK[m] then n = m end end
+  local m = 1 + floor(rnd(T) * n)
+  local sg = rnd(T) < 0.5 and -1 or 1
+  local mt = 12 + floor(rnd(T) * 16)
+  T.vm, T.mp, T.mk = 1, 0, sg * kmax * (0.6 + 0.4 * rnd(T))
+  if m == SLALOM or m == ZIGZAG or m == SPIRAL then mt = mt + 16
+  elseif m == HAIRPIN then mt = 60
+  elseif m == BURST then T.vm = 1.8
+  elseif m == STOP then mt, T.mp, T.gc = 10 + floor(rnd(T) * 6), 1, 0
+  end
+  T.man, T.ms, T.mt, T.m0 = m, sg, mt, mt
 end
 
--- advance the head by v px; kmax = max curvature (1/px); rmin = min turn radius used near walls
-function M.step(T, v, kmax, lo, hi, rmin)
+-- curvature asked by the current maneuver (1/px)
+local function bend(T, v, kmax, rmin)
+  local m, sg, t = T.man, T.ms, T.mt
+  if m == CURVE then return T.mk end
+  if m == ESS then return t * 2 > T.m0 and T.mk or -T.mk end
+  if m == SLALOM then return sg * kmax * sin(t * 0.35) end
+  if m == ZIGZAG then return t % 8 < 3 and (floor(t / 8) % 2 == 0 and sg or -sg) / rmin or 0 end
+  if m == SPIRAL then return sg * (kmax + (1 / rmin - kmax) * (1 - t / T.m0)) end
+  if m == HAIRPIN then
+    T.mp = T.mp + v / rmin -- turned angle
+    if T.mp >= pi then T.mt = 0 end
+    return sg / rmin
+  end
+  return T.k * 0.5 -- straight / burst
+end
+
+-- STOP: hover, reverse (the head eats its tunnel back), hover, then branch off; true = no new point
+local function stop(T)
+  T.mt = T.mt - 1
+  if T.mp == 2 then
+    if T.mt >= 0 and T.head - T.tail + 1 > M.MINLEN then
+      T.head = T.head - 1
+      local i = idx(T.head)
+      T.hx, T.hy, T.h = T.x[i], T.y[i], math.atan2(T.s[i], T.c[i])
+      return true
+    end
+    T.mp, T.mt = 3, 4
+  end
+  T.hover = true
+  if T.mt > 0 then return true end
+  if T.mp == 1 then
+    T.mp, T.mt = 2, 6 + floor(rnd(T) * 10)
+    return true
+  end
+  -- branch away from the tunnel it just ate
+  T.h = T.h + T.ms * (T.scroll and pi / 4 or pi / 2 + rnd(T) * pi / 4)
+  T.man, T.mt, T.m0, T.hover = STRAIGHT, 8, 8, false
+  return false
+end
+
+-- advance one tick: v = head speed (px), kmax = curvature limit, tsec = seconds alive
+function M.step(T, v, kmax, lo, hi, rmin, tsec)
+  T.hover, T.newGate = false, nil
+  if T.mt <= 0 then pick(T, tsec or 0, kmax) end
+  if T.man == STOP and stop(T) then return end
+  T.mt = T.mt - 1
   local x, y, h = T.hx, T.hy, T.h
-  local k = T.k * 0.85 + (rnd(T) * 2 - 1) * kmax * 0.6
+  v = v * T.vm
+  local k = bend(T, v, kmax, rmin)
   local ch, sh = cos(h), sin(h)
   local ahead = rmin + 4
   local fx, fy = x + ch * ahead, y + sh * ahead
-  if fx < lo or fx > hi or fy < lo or fy > hi then
+  if T.scroll then
+    -- keep heading up (within ~57 deg), away from the side walls
+    local d = (h + pi / 2 + pi) % (2 * pi) - pi -- angle away from straight up
+    if fx < lo or d < -1 then k = 1 / rmin elseif fx > hi or d > 1 then k = -1 / rmin end
+  elseif fx < lo or fx > hi or fy < lo or fy > hi then
     -- about to hit the wall: turn hard toward the middle of the area
     local mid = (lo + hi) / 2
     k = (ch * (mid - y) - sh * (mid - x)) >= 0 and 1 / rmin or -1 / rmin
-  elseif k > kmax then k = kmax
-  elseif k < -kmax then k = -kmax
   end
+  if k > 1 / rmin then k = 1 / rmin elseif k < -1 / rmin then k = -1 / rmin end
   T.k = k
   h = h + k * v
-  if h > math.pi then h = h - 2 * math.pi elseif h < -math.pi then h = h + 2 * math.pi end
+  if h > pi then h = h - 2 * pi elseif h < -pi then h = h + 2 * pi end
   x, y = x + cos(h) * v, y + sin(h) * v
   if x < lo then x = lo elseif x > hi then x = hi end
-  if y < lo then y = lo elseif y > hi then y = hi end
-  put(T, x, y, h)
+  if T.scroll then
+    if y - T.cam < lo + 4 then T.cam = y - lo - 4 end
+  elseif y < lo then y = lo elseif y > hi then y = hi end
+  -- chokes: every few seconds the next 5 points narrow, the middle one is a gate
+  local r = T.rt
+  if T.gc > 0 then
+    local d = M.CHOKE[6 - T.gc]
+    if d > T.rt - 3 then d = T.rt - 3 end
+    r = r - d
+    T.gc = T.gc - 1
+  else
+    T.gt = T.gt - 1
+    if T.gt <= 0 and T.man ~= STOP then T.gc, T.gt = 5, 60 + floor(rnd(T) * 40) end
+  end
+  put(T, x, y, h, r)
+  if T.gc == 2 then
+    T.gates[#T.gates + 1] = T.head
+    T.newGate = T.head
+  end
+end
+
+-- coupled hands: D follows S; mode 2 mirror, 3 copy, 4 invert (mirror + upside down); mid2 = lo + hi
+function M.copy(D, S, mode, mid2)
+  D.head, D.tail, D.len, D.cam, D.hover, D.newGate = S.head, S.tail, S.len, S.cam, S.hover, S.newGate
+  local i = idx(S.head)
+  local x, y, c, s = S.x[i], S.y[i], S.c[i], S.s[i]
+  if mode ~= 3 then x, c = mid2 - x, -c end
+  if mode == 4 then y, s = mid2 - y, -s end
+  D.x[i], D.y[i], D.c[i], D.s[i], D.r[i] = x, y, c, s, S.r[i]
+  D.hx, D.hy, D.h = x, y, math.atan2(s, c)
+  if S.newGate then D.gates[#D.gates + 1] = S.newGate end
 end
 
 -- age of point n: 0 solid, 1..3 fading
@@ -433,34 +632,34 @@ local function age(n, tail)
   return 1 + floor((tail - 1 - n) / 3)
 end
 
-local function cap(T, i, xo, rt, dir, pat)
-  local x, y = T.x[i] + xo, T.y[i]
+local function cap(T, i, xo, dir, pat)
+  local x, y, rt = T.x[i] + xo, T.y[i] - T.cam, T.r[i]
   local c, s = T.c[i] * dir, T.s[i] * dir
   local px, py
   for a = 0, 8 do
-    local ox, oy = rt * (c * CA[a] - s * SA[a]), rt * (s * CA[a] + c * SA[a])
-    local nx, ny = floor(x + ox + 0.5), floor(y + oy + 0.5)
+    local nx = floor(x + rt * (c * CA[a] - s * SA[a]) + 0.5)
+    local ny = floor(y + rt * (s * CA[a] + c * SA[a]) + 0.5)
     if px then draw.line(px, py, nx, ny, pat) end
     px, py = nx, ny
   end
 end
 
--- outline: two offset polylines + rounded ends, fading behind the tail
-function M.draw(T, xo, rt, v)
-  local tail = M.tail(T)
+-- outline: two offset polylines + rounded ends, fading behind the tail, gate posts
+function M.draw(T, xo, v)
+  local tail, head, yo = T.tail, T.head, T.cam
   local first = tail - M.FADE
   if first < 1 then first = 1 end
   -- ~4 px between vertices, but never more than MAXV vertices (draw-call budget at high speed)
   local stride = floor(M.STEP_PX / v + 0.5)
-  local need = math.ceil((T.head - first + 1) / M.MAXV)
+  local need = math.ceil((head - first + 1) / M.MAXV)
   if stride < need then stride = need end
   if stride < 1 then stride = 1 end
-  local CAP, X, Y, C, S = M.CAP, T.x, T.y, T.c, T.s
-  local lx, ly, rx, ry, pa
-  for n = first, T.head do
-    if n == first or n == T.head or n % stride == 0 then
-      local i = (n - 1) % CAP + 1
-      local x, y, ox, oy = X[i] + xo, Y[i], -S[i] * rt, C[i] * rt
+  local X, Y, C, S, R = T.x, T.y, T.c, T.s, T.r
+  local lx, ly, rx, ry, pa, pr
+  for n = first, head do
+    local i = idx(n)
+    if n == first or n == head or n % stride == 0 or R[i] ~= pr then
+      local x, y, ox, oy = X[i] + xo, Y[i] - yo, -S[i] * R[i], C[i] * R[i]
       local nlx, nly = floor(x + ox + 0.5), floor(y + oy + 0.5)
       local nrx, nry = floor(x - ox + 0.5), floor(y - oy + 0.5)
       if lx then
@@ -470,16 +669,28 @@ function M.draw(T, xo, rt, v)
       end
       lx, ly, rx, ry, pa = nlx, nly, nrx, nry, age(n, tail)
     end
+    pr = R[i]
   end
-  cap(T, (T.head - 1) % CAP + 1, xo, rt, 1, SOLID)
-  local fa = age(first, tail)
-  if fa < 4 then cap(T, (first - 1) % CAP + 1, xo, rt, -1, draw.PAT[fa]) end
+  cap(T, idx(head), xo, 1, SOLID)
+  cap(T, idx(first), xo, -1, draw.PAT[age(first, tail)])
+  -- gate posts: short ticks just outside both walls
+  for k = 1, #T.gates do
+    local n = T.gates[k]
+    if n >= tail and n <= head then
+      local i = idx(n)
+      local x, y, nx, ny, r = X[i] + xo, Y[i] - yo, -S[i], C[i], R[i]
+      draw.line(floor(x + nx * (r + 1) + 0.5), floor(y + ny * (r + 1) + 0.5),
+        floor(x + nx * (r + 3) + 0.5), floor(y + ny * (r + 3) + 0.5), SOLID)
+      draw.line(floor(x - nx * (r + 1) + 0.5), floor(y - ny * (r + 1) + 0.5),
+        floor(x - nx * (r + 3) + 0.5), floor(y - ny * (r + 3) + 0.5), SOLID)
+    end
+  end
 end
 
--- squared distance from (qx, qy) to segment n -> n+1; returns d2 and the unclamped projection t
+-- squared distance from (qx, qy) to segment n -> n+1; returns d2, unclamped projection t and the
+-- tunnel radius at the projected point (chokes narrow smoothly between points)
 local function seg(T, n, qx, qy)
-  local CAP = M.CAP
-  local i, j = (n - 1) % CAP + 1, n % CAP + 1
+  local i, j = idx(n), idx(n + 1)
   local ax, ay = T.x[i], T.y[i]
   local dx, dy = T.x[j] - ax, T.y[j] - ay
   local l2 = dx * dx + dy * dy
@@ -487,39 +698,39 @@ local function seg(T, n, qx, qy)
   if l2 > 0 then t = ((qx - ax) * dx + (qy - ay) * dy) / l2 end
   local tc = t < 0 and 0 or (t > 1 and 1 or t)
   local ex, ey = ax + dx * tc - qx, ay + dy * tc - qy
-  return ex * ex + ey * ey, t
+  return ex * ex + ey * ey, t, T.r[i] + (T.r[j] - T.r[i]) * tc
 end
 
 local function scan(T, a, b, qx, qy)
-  local best, bn, bt = 1e9, a, 0
+  local best, bn, bt, br = 1e9, a, 0, 0
   for n = a, b do
-    local d2, t = seg(T, n, qx, qy)
-    if d2 < best then best, bn, bt = d2, n, t end
+    local d2, t, r = seg(T, n, qx, qy)
+    if d2 < best then best, bn, bt, br = d2, n, t, r end
   end
-  return best, bn, bt
+  return best, bn, bt, br
 end
 
--- distance check against the solid part (tail..head)
--- returns d2 and true when the tail has just passed the quad (behind the tail point, near it)
-function M.near(T, qx, qy, rt2)
-  local tail, head = M.tail(T), T.head
+-- distance check against the solid part (tail..head); qy is world y in scroll mode
+-- returns d2, true when the tail has just passed the quad (behind the tail point, near it), and the radius
+function M.near(T, qx, qy)
+  local tail, head = T.tail, T.head
   if head == tail then
-    local i = (head - 1) % M.CAP + 1
+    local i = idx(head)
     local ex, ey = T.x[i] - qx, T.y[i] - qy
-    return ex * ex + ey * ey, false
+    return ex * ex + ey * ey, false, T.r[i]
   end
   local a, b = T.near - 12, T.near + 12
   if a < tail then a = tail end
   if b > head - 1 then b = head - 1 end
-  local d2, n, t
-  if a <= b then d2, n, t = scan(T, a, b, qx, qy) end
+  local d2, n, t, r
+  if a <= b then d2, n, t, r = scan(T, a, b, qx, qy) end
   -- full scan when the window says "out" or its best is on a window edge (the quad may be past it)
-  if not d2 or d2 > rt2 or (n == a and a > tail) or (n == b and b < head - 1) then
-    d2, n, t = scan(T, tail, head - 1, qx, qy)
+  if not d2 or d2 > r * r or (n == a and a > tail) or (n == b and b < head - 1) then
+    d2, n, t, r = scan(T, tail, head - 1, qx, qy)
   end
   T.near = n
   -- "tail" only while the quad is still within the rounded end it just slipped off
-  return d2, n == tail and t < 0 and d2 <= rt2
+  return d2, n == tail and t < 0 and d2 <= r * r, r
 end
 
 return M
@@ -548,13 +759,14 @@ function M.beep(freq, ms)
   playTone(freq, ms, 0, PLAY_NOW)
 end
 
--- 5 specks 1..5 px beyond the head cap, re-scattered every frame
+-- 5 specks 1..5 px beyond the head cap, re-scattered every frame; a hovering head pulls
+-- 8 specks in tight (the warning before it stops and reverses)
 local seed = 1
-function M.dust(x, y, c, s, rt, xo, xmax)
-  for _ = 1, 5 do
+function M.dust(x, y, c, s, rt, xo, xmax, gather)
+  for _ = 1, gather and 8 or 5 do
     seed = (seed * 16807) % 2147483647
-    local d = rt + 1 + seed % 5
-    local a = (seed % 19 - 9) / 10 -- -0.9..0.9 rad
+    local d = rt + 1 + seed % (gather and 2 or 5)
+    local a = (seed % 19 - 9) / (gather and 3 or 10) -- spread: -0.9..0.9 rad, -3..3 when gathering
     local ca, sa = math.cos(a), math.sin(a)
     local px = math.floor(x + (c * ca - s * sa) * d + 0.5)
     local py = math.floor(y + (s * ca + c * sa) * d + 0.5)
@@ -568,46 +780,60 @@ return M
 end)()
 
 local game = (function()
--- PLAY: two tunnels, two quads, out/tolerance rule, difficulty ramp, HUD.
+-- PLAY: two tunnels, two quads, out/tolerance rule, gates, accuracy, modes, difficulty ramp, HUD.
 
 local M = {}
 
 M.K0 = 1 / 16 -- max curvature at the start (1/px)
 M.PROTECT = 30 -- ticks after GO without "out" (1.5 s)
+M.SPRINT = 1200 -- sprint length in ticks (60 s)
+M.GATE_MS = 2000 -- score bonus per gate (enduro)
 M.CAUSE = { "LEFT HAND", "RIGHT HAND", "TAIL" }
 
 M.tracks = { track.new(), track.new() }
 M.qx, M.qy = { 32, 32 }, { 32, 32 }
 M.outN = { 0, 0 }
 M.outTail = { false, false }
+M.on = { true, true } -- sides in play (practice modes use one)
 
 local XO = { 0, 65 } -- screen x offset of each half
 local floor = math.floor
 
 -- new run: tunnels at the center of each half, a few straight points ahead
-function M.spawn(seed)
+function M.spawn(now)
   local v = config.v
+  local mode = v.MODE
   M.rt = config.radius()
-  M.rt2 = M.rt * M.rt
   M.limit = floor(v.CRASH_DELAY * 2 + 0.5) -- tenths of s -> 50 ms ticks
   if M.limit < 1 then M.limit = 1 end
   M.v0 = config.SPEEDS[v.SPEED]
   M.sa = config.ACCELS[v.SPEED_ACCEL + 1] / 100
   M.ca = config.ACCELS[v.CURVE_ACCEL + 1] / 100
-  M.t = 0
-  M.v = M.v0
-  M.crashed = nil
-  M.second = -1
+  M.scroll = v.TRACK == 2
+  M.couple = (mode < 4 and v.COUPLE > 1) and v.COUPLE or nil
+  if M.couple == 4 and M.scroll then M.couple = 2 end -- upside down makes no sense when scrolling
+  M.on[1], M.on[2] = mode ~= 5, mode ~= 4
+  M.canCrash = mode == 1 or mode >= 4
+  M.seed = v.SEED > 0 and v.SEED or now % 99 + 1 -- random runs still get a seed you can replay
+  M.t, M.v, M.gates, M.accSum, M.accN, M.anim = 0, M.v0, 0, 0, 0, 0
+  M.crashed, M.finished, M.second = nil, nil, -1
   fx.cool = 0
   fx.haptic = v.HAPTIC == 1
+  draw.prepare(v.SKIN_L, v.SKIN_R)
   local mid = (input.lo + input.hi) / 2
   for side = 1, 2 do
-    local T = M.tracks[side]
-    track.reset(T, mid, mid, seed + side * 1000003, v.TRACK_LEN)
-    for _ = 1, 5 do track.step(T, M.v0, 0, input.lo, input.hi, M.rt + 3) end
-    M.outN[side] = 0
-    M.outTail[side] = false
+    track.reset(M.tracks[side], mid, mid, M.seed * 7919 + side, v.TRACK_LEN, M.rt, M.scroll)
+    M.outN[side], M.outTail[side] = 0, false
   end
+  for _ = 1, 5 do M.advance(M.v0, 0, M.rt + 3, 0) end
+end
+
+-- step the tunnels in play (the right one copies the left when the hands are coupled)
+function M.advance(v, kmax, rmin, tsec)
+  local L, R = M.tracks[1], M.tracks[2]
+  if M.on[1] then track.step(L, v, kmax, input.lo, input.hi, rmin, tsec) end
+  if M.couple then track.copy(R, L, M.couple, input.lo + input.hi)
+  elseif M.on[2] then track.step(R, v, kmax, input.lo, input.hi, rmin, tsec) end
 end
 
 function M.moveQuads()
@@ -625,34 +851,74 @@ function M.tick()
   local rmin = M.rt + 3
   local kmax = M.K0 * (1 + M.ca * tmin) * ramp
   if kmax > 1 / rmin then kmax = 1 / rmin end
-  M.kmax = kmax
-  M.v = v
+  M.kmax, M.v = kmax, v
+  M.anim = M.anim + v * 0.4 -- prop spin follows the speed
+  M.advance(v, kmax, rmin, M.t / 20)
   local anyOut = false
   for side = 1, 2 do
-    local T = M.tracks[side]
-    track.step(T, v, kmax, input.lo, input.hi, rmin)
-    local d2, behind = track.near(T, M.qx[side], M.qy[side], M.rt2)
-    if M.t > M.PROTECT and (behind or d2 > M.rt2) then
-      -- the cause is fixed when the out-episode starts (the tail passing the quad)
-      if M.outN[side] == 0 then M.outTail[side] = behind end
-      M.outN[side] = M.outN[side] + 1
-      anyOut = true
-      if M.outN[side] >= M.limit and not M.crashed then
-        M.crashed = M.outTail[side] and 3 or side
+    if M.on[side] then
+      local T = M.tracks[side]
+      local d2, behind, r = track.near(T, M.qx[side], M.qy[side] + T.cam)
+      local out = behind or d2 > r * r
+      if M.t > M.PROTECT then
+        local a = 1 - math.sqrt(d2) / r
+        M.accSum, M.accN = M.accSum + (a > 0 and a or 0), M.accN + 1
+      else
+        out = false
       end
-    else
-      M.outN[side] = 0
+      if out then
+        -- the cause is fixed when the out-episode starts (the tail passing the quad)
+        if M.outN[side] == 0 then M.outTail[side] = behind end
+        M.outN[side] = M.outN[side] + 1
+        anyOut = true
+        if M.canCrash and M.outN[side] >= M.limit and not M.crashed then
+          M.crashed, M.crashSide = M.outTail[side] and 3 or side, side
+        end
+      else
+        M.outN[side] = 0
+      end
+      -- gates: pass the gate point while inside; gates eaten by the tail or a reversing head vanish
+      local G = T.gates
+      for k = #G, 1, -1 do
+        local g = G[k]
+        local passed = not out and T.near >= g
+        if passed or g < T.tail or g > T.head then
+          if passed then
+            M.gates = M.gates + 1
+            fx.beep(1800, 30)
+          end
+          for j = k, #G do G[j] = G[j + 1] end
+        end
+      end
     end
   end
   -- the cooldown keeps running after coming back in, so flicking in and out cannot flood audio/haptic
   if anyOut then fx.alarm() end
+  if M.t >= M.SPRINT and config.v.MODE == 2 then M.finished = true end
 end
 
 function M.ms() return M.t * 50 end
+function M.acc() return M.accN > 0 and floor(100 * M.accSum / M.accN + 0.5) or 100 end
+-- record score: ms (+ gate bonus) or accuracy % in sprint
+function M.score()
+  if config.v.MODE == 2 then return M.acc() end
+  return M.ms() + M.gates * M.GATE_MS
+end
+
+-- digits of n in the 3x5 font ending at x; returns the left x
+local function number(n, x, y)
+  repeat
+    x = x - 4
+    draw.glyph(draw.digit3[n % 10], x, y)
+    n = floor(n / 10)
+  until n == 0
+  return x
+end
 
 -- m:ss in the 3x5 font; digits are recomputed only when the second changes
 local function timer()
   local s = floor(M.t / 20)
+  if config.v.MODE == 2 then s = floor((M.SPRINT - M.t + 19) / 20) end -- sprint counts down
   if s ~= M.second then
     M.second = s
     M.m, M.s10, M.s1 = floor(s / 60), floor(s % 60 / 10), s % 10
@@ -670,26 +936,54 @@ end
 
 function M.drawWorld()
   lcd.drawLine(64, 0, 64, 63, SOLID, FORCE)
-  local rt = M.rt
   for side = 1, 2 do
-    local T, xo = M.tracks[side], XO[side]
-    track.draw(T, xo, rt, M.v)
-    fx.dust(T.hx, T.hy, math.cos(T.h), math.sin(T.h), rt, xo, side == 1 and 63 or 62)
+    if M.on[side] then
+      local T, xo = M.tracks[side], XO[side]
+      track.draw(T, xo, M.v)
+      local hy = T.hy - T.cam
+      if hy >= 0 then fx.dust(T.hx, hy, math.cos(T.h), math.sin(T.h), T.r[track.idx(T.head)], xo,
+        side == 1 and 63 or 62, T.hover) end
+    end
   end
 end
 
--- out quads blink between the crash and the normal sprite every 2 frames
-function M.drawQuads(frame)
+-- out quads blink between the crash and their own sprite every 2 frames
+function M.drawQuads(frame, skip)
+  local spin = floor(M.anim) % 2 + 1
   for side = 1, 2 do
-    local out = M.outN[side] > 0
-    draw.quad(floor(M.qx[side] + 0.5) + XO[side], floor(M.qy[side] + 0.5), out and frame % 4 < 2)
+    if M.on[side] and side ~= skip then
+      local x, y = floor(M.qx[side] + 0.5) + XO[side], floor(M.qy[side] + 0.5)
+      if M.outN[side] > 0 and frame % 4 < 2 then draw.quad(x, y, true)
+      else draw.skin(side == 1 and config.v.SKIN_L or config.v.SKIN_R, x, y, spin) end
+    end
+  end
+end
+
+-- crash animation step k: the crashed quad as wreck, its four props flying off
+function M.drawDebris(k)
+  local side = M.crashSide
+  M.drawQuads(0, side)
+  local qx, qy, xo = floor(M.qx[side] + 0.5), floor(M.qy[side] + 0.5), XO[side]
+  draw.quad(qx + xo, qy, true)
+  local d = 3 + floor(k * 1.5)
+  for sx = -1, 1, 2 do
+    for sy = -1, 1, 2 do
+      local x, y = qx + sx * d, qy + sy * d
+      if x >= 1 and x <= 61 and y >= 1 and y <= 61 then lcd.drawFilledRectangle(x + xo - 1, y - 1, 2, 2, FORCE) end
+    end
   end
 end
 
 function M.drawHud()
   timer()
-  lcd.drawText(2, 56, "L", 0)
-  lcd.drawText(121, 56, "R", 0)
+  if config.v.MODE == 3 then
+    draw.glyph(draw.small["%"], 122, 2)
+    number(M.acc(), 122, 2)
+  else
+    number(M.gates, 126, 2)
+  end
+  if M.on[1] then lcd.drawText(2, 56, "L", 0) end
+  if M.on[2] then lcd.drawText(121, 56, "R", 0) end
   if M.outN[1] > 0 then lcd.drawFilledRectangle(0, 54, 9, 10) end
   if M.outN[2] > 0 then lcd.drawFilledRectangle(119, 54, 9, 10) end
 end
@@ -725,12 +1019,13 @@ function M.warn(modelName)
   boxed(51, "[ENT] I KNOW")
 end
 
-function M.title(best, saveOk)
+-- sub: mode and preset (or NO SAVE)
+function M.title(best, sub)
   M.center(3, "GATERUSH", DBLSIZE)
-  M.center(21, saveOk and "TWIN-STICK FPV" or "NO SAVE")
+  M.center(21, sub)
   draw.quadIcon(27, 37)
   draw.quadIcon(100, 37)
-  M.center(34, "BEST " .. best)
+  M.center(34, best)
   M.center(46, "ENT:ARM  RTN:EXIT")
   M.center(56, "HOLD ENT: SETTINGS")
 end
@@ -740,24 +1035,28 @@ for i = 1, #config.ITEMS do M.MENU[i] = config.ITEMS[i] end
 M.MENU[#M.MENU + 1] = { name = "RESET BEST", action = "reset" }
 M.MENU[#M.MENU + 1] = { name = "EXIT", action = "exit" }
 
+local PAGES = math.ceil(#M.MENU / 5)
+
 function M.settings(sel, editing, confirm)
-  local page = sel <= 5 and 1 or 2
+  local page = math.ceil(sel / 5)
   lcd.drawText(2, 1, "SETTINGS", 0)
-  lcd.drawText(90, 1, page .. "/2", 0)
+  lcd.drawText(90, 1, page .. "/" .. PAGES, 0)
   lcd.drawLine(0, 9, 127, 9, SOLID, FORCE)
   for row = 1, 5 do
     local i = (page - 1) * 5 + row
     local it, y = M.MENU[i], 2 + row * 10
+    if not it then break end
     local val = ""
     if it.key then val = config.label(it)
     elseif it.action == "reset" then val = confirm and "ENT?" or "..." end
     if i == sel and editing then val = "<" .. val .. ">" end
     lcd.drawText(4, y, it.name, 0)
-    lcd.drawText(84, y, val, 0)
+    lcd.drawText(78, y, val, 0)
     if i == sel then lcd.drawFilledRectangle(0, y - 1, 124, 9) end
   end
   lcd.drawLine(126, 11, 126, 62, SOLID, FORCE)
-  lcd.drawFilledRectangle(125, page == 1 and 11 or 37, 3, 26, FORCE)
+  local h = math.floor(52 / PAGES)
+  lcd.drawFilledRectangle(125, 11 + (page - 1) * h, 3, h, FORCE)
 end
 
 -- 21x21 box with crosshair and the stick dot, hold bar below
@@ -784,13 +1083,15 @@ function M.centerSticks(holdL, holdR)
 end
 
 -- "3" "2" "1" in an 18x24 box per half, above or below the quad so it never hides it
-function M.count(n, qy)
+function M.count(n, qy, on)
   for side = 1, 2 do
-    local x = side == 1 and 23 or 88
-    local y = qy[side] > 32 and 3 or 38
-    lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
-    lcd.drawRectangle(x, y, 18, 24, FORCE)
-    draw.glyph(draw.big[n], x + 3, y + 2)
+    if on[side] then
+      local x = side == 1 and 23 or 88
+      local y = qy[side] > 32 and 3 or 38
+      lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
+      lcd.drawRectangle(x, y, 18, 24, FORCE)
+      draw.glyph(draw.big[n], x + 3, y + 2)
+    end
   end
 end
 
@@ -802,13 +1103,15 @@ function M.pause()
   M.center(34, "ENT:GO RTN:QUIT")
 end
 
--- c = { time, cause, best, avg, newBest }
+-- result screen; c = { title, lines = { up to 3 }, rec, newBest }; a new best is shown in reverse video
 function M.crashed(c)
-  M.center(2, "CRASHED", DBLSIZE)
+  M.center(2, c.title, DBLSIZE)
   rule()
-  M.center(22, c.line1)
-  M.center(32, c.line2)
-  if c.newBest then boxed(42, "NEW BEST!") end
+  for i = 1, #c.lines do M.center(11 + i * 9, c.lines[i]) end
+  if c.rec then
+    M.center(47, c.rec)
+    if c.newBest then lcd.drawFilledRectangle(0, 46, 128, 9) end
+  end
   M.center(56, "[ENT] RE-ARM")
 end
 
@@ -817,15 +1120,15 @@ end)()
 
 -- GateRush entry: state machine, fixed 50 ms timestep, events, backlight.
 
-local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED = 1, 2, 3, 4, 5, 6, 7, 8, 9
+local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED, WRECK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
 local state, last, acc, frame = WARN, 0, 0, 0
 local ignoreUntil = 0
 local eatEnter = false -- the ENTER release that follows a long press
-local saveOk, modelName, best = true, nil, "--:--"
+local saveOk, modelName, best, sub = true, nil, "", ""
 local sel, editing, confirm = 1, false, false
 local hold = { 0, 0 }
-local count = 0 -- countdown ticks
+local count = 0 -- countdown / crash animation ticks
 local flash = 0
 local crash = {}
 
@@ -844,8 +1147,16 @@ local function isPrev(e)
   return is(e, EVT_VIRTUAL_PREV, EVT_VIRTUAL_DEC_REPT, EVT_VIRTUAL_PREV_PAGE, EVT_MINUS_BREAK)
 end
 
+-- score as shown: m:ss, or % in sprint
+local function fmt(v)
+  if config.v.MODE == 2 then return v and v .. "%" or "--%" end
+  return stats.fmt(v)
+end
+
 local function refreshBest()
-  best = stats.fmt(stats.best(config.hash()))
+  local v = config.v
+  best = v.MODE == 3 and "FREE FLIGHT" or "BEST " .. fmt(stats.best(config.hash()))
+  sub = saveOk and config.MODES[v.MODE] .. "  " .. config.PRESETS[v.PRESET] or "NO SAVE"
 end
 
 local function go(s)
@@ -860,20 +1171,30 @@ local function go(s)
   if s == RESUME then count = 0 end
 end
 
+-- result screen; quit = RTN from pause (never recorded); zen runs are never recorded
 local function finish(quit)
-  local key = config.hash()
-  local ms = game.ms()
-  local newBest = false
-  if not quit then
-    newBest = stats.add(key, ms)
-    stats.save()
+  local mode, key = config.v.MODE, config.hash()
+  local time, acc, seed = stats.fmt(game.ms()), "ACC " .. game.acc() .. "%", "SEED " .. game.seed
+  local gates = "GATES " .. game.gates
+  local record = not quit and mode ~= 3
+  crash.newBest = record and stats.add(key, game.score())
+  if record then stats.save() end
+  if mode == 2 then
+    crash.title = quit and "QUIT" or "FINISH"
+    crash.lines = { acc .. "  " .. gates, seed }
+  elseif mode == 3 then
+    crash.title = "ZEN"
+    crash.lines = { "TIME " .. time .. "  " .. acc, gates .. "  " .. seed }
+  else
+    local line1 = "TIME " .. time .. "  " .. (quit and "QUIT" or game.CAUSE[game.crashed])
+    if #line1 > 21 then line1 = "TIME " .. time .. " " .. (quit and "QUIT" or game.CAUSE[game.crashed]) end
+    crash.title = quit and "QUIT" or "CRASHED"
+    crash.lines = { line1, gates .. "  " .. acc, "SCORE " .. fmt(game.score()) .. "  " .. seed }
   end
-  local cause = quit and "QUIT" or game.CAUSE[game.crashed]
-  local line1 = "TIME " .. stats.fmt(ms) .. "  " .. cause
-  if #line1 > 21 then line1 = "TIME " .. stats.fmt(ms) .. " " .. cause end
-  crash.line1 = line1
-  crash.line2 = "BEST " .. stats.fmt(stats.best(key)) .. "  AVG " .. stats.fmt(stats.avg(key))
-  crash.newBest = newBest
+  crash.rec = nil
+  if mode ~= 3 then
+    crash.rec = (crash.newBest and "NEW BEST!" or "BEST " .. fmt(stats.best(key))) .. "  AVG " .. fmt(stats.avg(key))
+  end
   flash = quit and 0 or 2
   go(CRASHED)
 end
@@ -882,6 +1203,7 @@ local function leaveSettings()
   saveOk = config.save()
   input.setRange(config.radius())
   editing, confirm = false, false
+  refreshBest()
   go(TITLE)
 end
 
@@ -933,8 +1255,11 @@ local function update(e, steps)
     refreshBest()
   elseif state == CENTER then
     if isExit(e) then go(TITLE) return 0 end
+    -- practice modes only need the stick of the hand in play
+    local mode = config.v.MODE
     for side = 1, 2 do
-      hold[side] = input.centered(side) and hold[side] + steps or 0
+      local used = (side == 1 and mode ~= 5) or (side == 2 and mode ~= 4)
+      hold[side] = (input.centered(side) or not used) and hold[side] + steps or 0
       if hold[side] > 10 then hold[side] = 10 end
     end
     if hold[1] >= 10 and hold[2] >= 10 then go(COUNTDOWN) end
@@ -950,8 +1275,15 @@ local function update(e, steps)
     game.moveQuads()
     for _ = 1, steps do
       game.tick()
-      if game.crashed then finish(false) break end
+      if game.crashed then
+        state, count = WRECK, 0
+        break
+      end
+      if game.finished then finish(false) break end
     end
+  elseif state == WRECK then
+    count = count + steps -- props fly off for 0.6 s, then the result
+    if count >= 12 then finish(false) end
   elseif state == PAUSE then
     if isEnter(e) then go(RESUME) elseif isExit(e) then finish(true) end
   elseif state == CRASHED then
@@ -963,7 +1295,7 @@ end
 local function render()
   lcd.clear()
   if state == WARN then screens.warn(modelName)
-  elseif state == TITLE then screens.title(best, saveOk)
+  elseif state == TITLE then screens.title(best, sub)
   elseif state == SETTINGS then screens.settings(sel, editing, confirm)
   elseif state == CENTER then screens.centerSticks(hold[1] / 10, hold[2] / 10)
   elseif state == CRASHED and flash == 0 then screens.crashed(crash)
@@ -971,9 +1303,9 @@ local function render()
     game.drawWorld()
     if state == COUNTDOWN or state == RESUME then
       local n = 3 - math.floor(count / 20)
-      screens.count(n < 1 and 1 or n, game.qy)
+      screens.count(n < 1 and 1 or n, game.qy, game.on)
     end
-    game.drawQuads(frame)
+    if state == WRECK then game.drawDebris(count) else game.drawQuads(frame) end
     if state ~= COUNTDOWN then game.drawHud() end
     if state == PAUSE then screens.pause()
     elseif state == CRASHED then
@@ -1013,7 +1345,7 @@ local function run(event)
   if now < ignoreUntil then event = 0 end
   input.read(config.v.STICK_MODE)
   local r = update(event, steps)
-  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end
+  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end -- WRECK too
   render()
   return r
 end

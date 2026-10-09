@@ -71,11 +71,13 @@ T.test("leaving the settings applies the new MARGIN to the stick mapping", funct
   h.step(0, 0, 0, 0, "long")
   h.step(0, 0, 0, 0, "enter") -- release after the long press is swallowed
   h.wait(10)
+  for _ = 1, 5 do h.step(0, 0, 0, 0, "next") end -- PRESET MODE TRACK COUPLE SEED -> MARGIN
   h.step(0, 0, 0, 0, "enter") -- edit MARGIN
   h.step(0, 0, 0, 0, "next")
   h.step(0, 0, 0, 0, "next")
   h.step(0, 0, 0, 0, "enter")
   T.eq(h.config.v.MARGIN, 4)
+  T.eq(h.config.v.PRESET, 5) -- CUSTOM once a difficulty value moves off the preset
   h.step(0, 0, 0, 0, "exit")
   T.eq(h.input.lo, 4 + 4 + 2)
 end)
