@@ -20,3 +20,26 @@ One line each: what — why — discarded alternative.
 - Tail rule: quad projection before the tail point (t < 0 on the first segment) = out with cause `TAIL`.
 - `CRASH_DELAY` in ticks = round(delay·20); crash on out-tick number `max(1, ticks)` (0 → first frame, 0.3 → 6th) — matches §9.
 - License MIT — simplest permissive choice; nothing from GPL games is copied, only patterns — GPL-2.0.
+
+## During the build
+
+- Mock semantics come from the EdgeTX 2.11 `gui/128x64/lcd.cpp` (summary in `docs/research/lcd_semantics.md`) and fonts decoded from the firmware PNGs — pixel-exact goldens are only meaningful against the real rasteriser — approximate 5x7 font from the renderer.
+- Game drawing always passes `FORCE`/`ERASE` explicitly; the default flag is XOR on B&W, so overlapping lines would cancel — rely on the default.
+- Reverse-video rows (selected setting, `[ENT] I KNOW`, `NEW BEST!`, out corner) are drawn as text + an XOR `drawFilledRectangle` — matches the mockups' box sizes and costs one call — `INVERS` text (box hugs the glyphs).
+- Text is centered with the native `CENTER` flag (exported on B&W in `api_general.cpp`) — the default font is proportional, a fixed 6 px width would be off — width tables in the script.
+- Countdown digits are the 3x5 HUD font drawn x4 (12x20) in an 18x24 box placed above or below the quad of that half — the 23x29 box of the mockup covers the quad that spawns at the center — box over the quad.
+- RF warning shows the model name inside line 2 ("STICKS TO <NAME>", 11 chars max) — no free line on the 128x64 layout — extra line.
+- "NO SAVE" replaces the "TWIN-STICK FPV" subtitle — the title has no free spot — overlapping small text.
+- The ENTER release that follows a long press is swallowed by a flag — the real firmware still delivers it and `killEvents` cannot mask ENTER/EXIT on B&W (verified in the simulator) — rely on `killEvents`.
+- Menu navigation accepts `EVT_VIRTUAL_NEXT/PREV` (roller), `EVT_VIRTUAL_NEXT_PAGE/PREV_PAGE` (PAGE keys, TX12 without roller) and `EVT_PLUS/MINUS_BREAK` when defined — not every radio has a roller — roller only.
+- `TAIL` cause only when the out-episode starts with the quad just behind the tail point and within the tunnel radius of it — a quad flung far away is a hand error even if the nearest segment is the tail — any projection before the tail.
+- Cause and tolerance are per side; the first side to exhaust its tolerance names the crash.
+- Bot models the hand as an exponential lag (gain 1/(1+delay)) plus wandering noise — the tunnel is a static trail, so pure reaction delay never makes a bot leave it — pure delay.
+- Acceleration table tripled (0/45/90/135/180/240 % per minute), speeds unchanged — needed for the average bot to crash in 40–120 s (see TUNING.md) — faster base speed (made the start hectic).
+- Outline vertices capped at 45 per tunnel — worst case was 459 draw calls at 1:30 with TRACK_LEN 80 — drawing every 2nd point always (ugly at slow speed).
+- Pause RTN (QUIT) is not stored at all (neither best nor average) — the spec says it is not a record; counting it in AVG would punish quitting — count it in AVG.
+- CRASHED shows the updated BEST without the mockup's `*` marker — `NEW BEST!` already says it — keep the asterisk.
+- No `table`, `os` or string methods in the game — the real firmware sandbox has none of them (found with the Level 2 run); the mock removes them too.
+- Level 2 uses the EdgeTX **2.12.4** Companion DLLs driven by Python `ctypes`, not a Docker build of 2.11 — no Docker or compiler on this machine; the DLLs are the same firmware code compiled for PC — Docker build.
+- `dist/` is committed — the goal is a file ready to copy to the SD card — generated only.
+- `luacheck` was not available; `make lint` also checks the built file's bytecode for global writes (`SETTABUP _ENV`), and the mock fails at runtime on any unknown global read.
