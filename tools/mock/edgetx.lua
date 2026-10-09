@@ -3,7 +3,7 @@
 -- Code that runs inside the radio sandbox (lcd/io functions) uses string.x(s) calls, not s:x().
 local here = (debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./")
 local FB = dofile(here .. "framebuffer.lua")
-local realio, realos = io, os
+local realio, realos, realLoadfile = io, os, loadfile
 local W, H = 128, 64
 
 local M = {}
@@ -58,7 +58,7 @@ function M.install(opts)
   local S = {
     fb = FB.new(), clock = opts.clock or 0, inputs = { ail = 0, ele = 0, thr = 0, rud = 0 },
     tones = {}, haptics = {}, calls = 0, maxCalls = 0, sdroot = opts.sdroot, killed = {},
-    lastRight = 0, lastLeft = 0, modelName = opts.modelName,
+    lastRight = 0, lastLeft = 0, modelName = opts.modelName, modules = {}, scriptDir = opts.scriptDir,
   }
   local fb = S.fb
 
@@ -280,6 +280,20 @@ function M.install(opts)
     getUsage = function() return 0 end,
     killEvents = function(e) S.killed[#S.killed + 1] = e end,
     getStickMode = opts.stickMode and function() return opts.stickMode end or nil,
+    -- loadScript(path): "/SCRIPTS/TOOLS/GATERUSH/x.lua" is read from S.scriptDir (src/ or dist/...)
+    loadScript = function(path)
+      local dir = S.scriptDir or S.sdroot .. "/SCRIPTS/TOOLS/GATERUSH/"
+      local name = string.match(path, "^/SCRIPTS/TOOLS/GATERUSH/([%w_]+)%.lua$")
+      if not name then return nil, "loadScript(\"" .. tostring(path) .. "\") error: File not found" end
+      local f, err = realLoadfile(dir .. name .. ".lua")
+      if not f then return nil, err end
+      S.loads = (S.loads or 0) + 1
+      return function(...)
+        local m = f(...)
+        S.modules[name] = m
+        return m
+      end
+    end,
   }
   for k, v in pairs(C) do api[k] = v end
   if opts.noLegacy then

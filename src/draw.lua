@@ -150,21 +150,6 @@ function M.skin(n, x, y, frame)
   M.glyph(M.skins[n][frame], x - 4, y - 4)
 end
 
--- 11x11 quad silhouette for the title
-function M.quadIcon(x, y)
-  lcd.drawFilledRectangle(x - 1, y - 1, 3, 3, FORCE)
-  for sx = -1, 1, 2 do
-    for sy = -1, 1, 2 do
-      lcd.drawLine(x + 2 * sx, y + 2 * sy, x + 4 * sx, y + 4 * sy, SOLID, FORCE)
-      local cx, cy = x + 5 * sx, y + 5 * sy
-      lcd.drawPoint(cx - 1, cy, FORCE)
-      lcd.drawPoint(cx + 1, cy, FORCE)
-      lcd.drawPoint(cx, cy - 1, FORCE)
-      lcd.drawPoint(cx, cy + 1, FORCE)
-    end
-  end
-end
-
 -- line pattern by tail age: solid, 50 %, 25 %, 12 %
 M.PAT = { [0] = SOLID, 0x55, 0x11, 0x01 }
 

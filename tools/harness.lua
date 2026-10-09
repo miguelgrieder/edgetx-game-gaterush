@@ -4,7 +4,7 @@ local mock = dofile(here .. "mock/edgetx.lua")
 
 local H = {}
 H.mock = mock
-H.MODULES = { "config", "stats", "draw", "input", "track", "fx", "game", "screens", "main" }
+H.MODULES = { "config", "stats", "draw", "input", "track", "fx", "game", "menus" }
 
 local EVENTS = {
   enter = "EVT_VIRTUAL_ENTER", long = "EVT_VIRTUAL_ENTER_LONG", exit = "EVT_VIRTUAL_EXIT",
@@ -15,8 +15,10 @@ local EVENTS = {
 function H.new(opts)
   opts = opts or {}
   local sdroot = mock.sd(opts.sd or "default", not opts.noSaveFolder)
+  local dist = (opts.target or "src") == "dist"
   local S = mock.install({ sdroot = sdroot, stickMode = opts.stickMode, modelName = opts.modelName or "",
-    noLegacy = opts.noLegacy, clock = opts.clock or 1000, fast = opts.fast })
+    noLegacy = opts.noLegacy, clock = opts.clock or 1000, fast = opts.fast,
+    scriptDir = dist and "dist/SCRIPTS/TOOLS/GATERUSH/" or "src/" })
   local h = { S = S, frame = 0, lastCalls = 0 }
   -- libraries a tool script does not get on the radio (verified in the firmware simulator)
   local HIDDEN = { "table", "os", "debug", "coroutine" }
@@ -34,15 +36,14 @@ function H.new(opts)
     return r
   end
   h.radio = radio
-  if (opts.target or "src") == "dist" then
-    h.app = radio(dofile, "dist/SCRIPTS/TOOLS/gaterush.lua")
-  else
-    if not package.path:find("src/?.lua", 1, true) then package.path = "src/?.lua;" .. package.path end
-    for _, m in ipairs(H.MODULES) do package.loaded[m] = nil end
-    h.app = radio(require, "main")
-    h.game, h.input, h.track, h.config, h.stats = require("game"), require("input"), require("track"),
-      require("config"), require("stats")
-  end
+  h.app = radio(dofile, dist and "dist/SCRIPTS/TOOLS/gaterush.lua" or "src/main.lua")
+  -- h.game, h.config, ...: the module as the game's own loader has it (loading it if needed)
+  function h.use(name) return radio(h.app.use, name) end
+  setmetatable(h, { __index = function(_, k)
+    for _, m in ipairs(H.MODULES) do if m == k then return h.use(k) end end
+  end })
+  -- context for input scripts / bots: always the current module instances
+  h.ctx = setmetatable({ h = h }, { __index = function(_, k) return h[k] end })
   if opts.setup then opts.setup(h) end
   radio(h.app.init)
 

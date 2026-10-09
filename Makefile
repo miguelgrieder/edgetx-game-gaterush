@@ -10,7 +10,7 @@ all: build test
 
 build:
 	$(LUA) tools/build.lua
-	$(LUAC) -p dist/SCRIPTS/TOOLS/gaterush.lua
+	$(LUAC) -p dist/SCRIPTS/TOOLS/gaterush.lua dist/SCRIPTS/TOOLS/GATERUSH/*.lua
 
 test: build
 	$(LUA) tests/run_all.lua
@@ -27,7 +27,7 @@ frames: build
 # luacheck if installed; the built file must never write a global
 lint: build
 	-luacheck src tools tests
-	@! $(LUAC) -l -p dist/SCRIPTS/TOOLS/gaterush.lua | grep 'SETTABUP.*_ENV' || (echo "global write in dist"; exit 1)
+	@! $(LUAC) -l -p dist/SCRIPTS/TOOLS/gaterush.lua dist/SCRIPTS/TOOLS/GATERUSH/*.lua | grep 'SETTABUP.*_ENV' || (echo "global write in dist"; exit 1)
 
 # Level 2: real firmware (Companion simulator DLLs, Windows x64), see tools/simhost/README.md
 SIMU_DLLS ?= ../companion/bin
@@ -42,4 +42,4 @@ sim: build
 dist: build
 
 clean:
-	rm -rf out dist/SCRIPTS/TOOLS/gaterush.lua
+	rm -rf out dist/SCRIPTS/TOOLS/gaterush.lua dist/SCRIPTS/TOOLS/GATERUSH/*.lua

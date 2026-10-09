@@ -7,7 +7,7 @@ function B.new(o)
   local delay, noise, lead = o.delay or 0, o.noise or 0, o.lead or 4
   local seed = o.seed or 1
   local hist = {} -- delayed stick commands, ring of delay+1 entries
-  local phase, phaseT = "menu", 0
+  local phaseT = 0
 
   local function rnd()
     seed = (seed * 16807) % 2147483647
@@ -46,16 +46,14 @@ function B.new(o)
   end
 
   return function(frame, _, ctx)
-    local g = ctx.game
-    -- menus: ENTER through the warning and title, sticks centered until the countdown spawns tunnels
-    if phase == "menu" then
-      if frame == 10 or frame == 20 then return 0, 0, 0, 0, "enter" end
-      if g.t and g.tracks[1].head and frame > 20 then phase = "play" end
-      return 0, 0, 0, 0
-    end
-    if g.crashed and o.rearm then
-      phaseT = phaseT + 1
-      if phaseT == 15 then phaseT = 0; return 0, 0, 0, 0, "enter" end
+    -- menus (warning 1, title 2, center sticks 4, result 9): ENTER through, sticks centered
+    local st = ctx.h.app.state()
+    if st <= 4 or st == 9 then
+      if st <= 2 and (frame == 10 or frame == 20) then return 0, 0, 0, 0, "enter" end
+      if st == 9 and o.rearm then
+        phaseT = phaseT + 1
+        if phaseT == 15 then phaseT = 0; return 0, 0, 0, 0, "enter" end
+      end
       return 0, 0, 0, 0
     end
     local ax, ay = aim(ctx, 1)

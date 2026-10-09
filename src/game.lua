@@ -1,9 +1,11 @@
--- PLAY: two tunnels, two quads, out/tolerance rule, gates, accuracy, modes, difficulty ramp, HUD.
-local config = require("config")
-local input = require("input")
-local track = require("track")
-local draw = require("draw")
-local fx = require("fx")
+-- Play group (loaded only during a run): two tunnels, two quads, out/tolerance rule, gates,
+-- accuracy, modes, difficulty ramp, HUD, countdown and pause overlays.
+local use = ...
+local config = use("config")
+local input = use("input")
+local track = use("track")
+local draw = use("draw")
+local fx = use("fx")
 
 local M = {}
 
@@ -164,7 +166,7 @@ function M.drawWorld()
       local T, xo = M.tracks[side], XO[side]
       track.draw(T, xo, M.v)
       local hy = T.hy - T.cam
-      if hy >= 0 then fx.dust(T.hx, hy, math.cos(T.h), math.sin(T.h), T.r[track.idx(T.head)], xo,
+      if hy >= 0 then fx.dust(T.hx, hy, math.cos(T.h), math.sin(T.h), track.rad(T, T.head), xo,
         side == 1 and 63 or 62, T.hover) end
     end
   end
@@ -195,6 +197,33 @@ function M.drawDebris(k)
       if x >= 1 and x <= 61 and y >= 1 and y <= 61 then lcd.drawFilledRectangle(x + xo - 1, y - 1, 2, 2, FORCE) end
     end
   end
+end
+
+-- "3" "2" "1" in an 18x24 box per half, above or below the quad so it never hides it
+function M.count(n)
+  for side = 1, 2 do
+    if M.on[side] then
+      local x = side == 1 and 23 or 88
+      local y = M.qy[side] > 32 and 3 or 38
+      lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
+      lcd.drawRectangle(x, y, 18, 24, FORCE)
+      draw.glyph(draw.big[n], x + 3, y + 2)
+    end
+  end
+end
+
+function M.pause()
+  lcd.drawFilledRectangle(14, 20, 100, 24, ERASE)
+  lcd.drawRectangle(14, 20, 100, 24, FORCE)
+  lcd.drawRectangle(16, 22, 96, 20, FORCE)
+  lcd.drawText(64, 24, "PAUSED", CENTER)
+  lcd.drawText(64, 34, "ENT:GO RTN:QUIT", CENTER)
+end
+
+-- what the result screen needs, as plain values (the play group is unloaded after this)
+function M.result(quit)
+  return { quit = quit, ms = M.ms(), gates = M.gates, acc = M.acc(), seed = M.seed, score = M.score(),
+    cause = M.crashed and M.CAUSE[M.crashed] or "QUIT" }
 end
 
 function M.drawHud()

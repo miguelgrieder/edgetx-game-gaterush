@@ -10,13 +10,17 @@ local function setup(cfg)
   return h, h.game
 end
 
--- put both quads on the centerline 2 points behind the head, plus an offset (px) for side 1
+-- put both quads on the centerline 2 points behind the head, plus an offset (px, along the normal) for side 1
 local function follow(h, g, off)
   for side = 1, 2 do
     local Tr = g.tracks[side]
-    local i = (Tr.head - 3) % h.track.CAP + 1
-    g.qx[side] = Tr.x[i] - Tr.s[i] * ((side == 1) and (off or 0) or 0)
-    g.qy[side] = Tr.y[i] + Tr.c[i] * ((side == 1) and (off or 0) or 0)
+    local i, a, b = h.track.idx(Tr.head - 2), h.track.idx(Tr.head - 3), h.track.idx(Tr.head - 1)
+    local dx, dy = Tr.x[b] - Tr.x[a], Tr.y[b] - Tr.y[a]
+    local l = math.sqrt(dx * dx + dy * dy)
+    if l < 1e-9 then dx, dy, l = 1, 0, 1 end
+    local o = side == 1 and (off or 0) or 0
+    g.qx[side] = Tr.x[i] - dy / l * o
+    g.qy[side] = Tr.y[i] + dx / l * o
   end
 end
 
@@ -167,10 +171,11 @@ end)
 T.test("crash records the run; a better run is a NEW BEST", function()
   local h = toPlay()
   h.wait(80, 1024, 1024, 1024, 1024)
-  T.ok(h.game.crashed ~= nil)
+  T.eq(h.app.state(), 9) -- result screen
   local key = h.config.hash()
-  T.eq(h.stats.best(key), h.game.ms())
+  T.ok(h.stats.best(key) > 0)
   T.eq(h.stats.rec[key][2], 1)
+  T.eq(h.menus.res.newBest, true)
 end)
 
 T.test("gates: passing the gate point inside scores, gates behind the tail vanish", function()
@@ -259,8 +264,12 @@ end)
 
 T.test("a crash plays the wreck animation, then the result screen records the score", function()
   local h = toPlay()
-  h.wait(60, 1024, 1024, 1024, 1024)
-  local key = h.config.hash()
-  T.ok(h.game.crashed ~= nil)
-  T.eq(h.stats.best(key), h.game.score())
+  local states = {}
+  for _ = 1, 60 do
+    h.step(1024, 1024, 1024, 1024)
+    states[h.app.state()] = true
+  end
+  T.ok(states[10], "went through the wreck animation")
+  T.eq(h.app.state(), 9)
+  T.ok(h.stats.best(h.config.hash()) > 0)
 end)

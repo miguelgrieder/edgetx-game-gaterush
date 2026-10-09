@@ -24,7 +24,7 @@ for _, p in ipairs(profiles) do
       if A then h.config.ACCELS[3] = A end
       if K then h.game.K0 = K end
     end })
-    local ctx = { game = h.game, input = h.input, track = h.track, h = h }
+    local ctx = h.ctx
     local bot = Bot.new({ delay = p[1], noise = p[2], seed = r })
     local f = 0
     repeat

@@ -8,7 +8,7 @@ local Bot = dofile(here .. "bot.lua")
 local out = io.stdout -- before the mock replaces io
 local runs = tonumber(arg[1]) or 100
 local h = H.new({ sd = "soak", target = arg[2] or "src" })
-local ctx = { game = h.game, input = h.input, track = h.track, h = h }
+local ctx = h.ctx
 local bot = Bot.new({ delay = 8, noise = 4, seed = 99, rearm = true })
 
 local crashes, f, maxCalls, wasCrashed = 0, 0, 0, false

@@ -32,7 +32,7 @@ local function write(path, text)
 end
 
 local sumCalls, maxCalls, maxFrame, mem50, memEnd, memMax = 0, 0, 0, nil, nil, 0
-local ctx = { game = h.game, input = h.input, track = h.track, h = h }
+local ctx = h.ctx
 local ran, nTones, nHaptics = 0, 0, 0
 for f = 1, frames do
   local ail, ele, thr, rud, ev = opts.fn(f, h.S.clock + 5, ctx)

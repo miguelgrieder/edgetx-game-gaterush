@@ -10,9 +10,6 @@ M.SPEEDS = { 0.8, 1.1, 1.5, 2.0, 2.6, 3.2, 3.9, 4.7 }
 M.ACCELS = { 0, 45, 90, 135, 180, 240, 300, 380, 480 }
 
 M.PRESETS = { "EASY", "NORMAL", "HARD", "PRO", "CUSTOM" }
--- MARGIN, CRASH_DELAY, SPEED, SPEED_ACCEL, CURVE_ACCEL, TRACK_LEN of each preset
-M.PRESET_V = { { 3, 10, 3, 1, 2, 35 }, { 2, 5, 4, 2, 5, 25 }, { 1, 3, 5, 3, 6, 25 }, { 0, 2, 6, 4, 8, 20 } }
-M.DIFF = { "MARGIN", "CRASH_DELAY", "SPEED", "SPEED_ACCEL", "CURVE_ACCEL", "TRACK_LEN" }
 M.MODES = { "ENDURO", "SPRINT", "ZEN", "LEFT", "RIGHT" }
 M.SKINS = { "DISC", "RING", "XFRM", "PODS", "THIN", "PLUS", "GEM", "BLADE" }
 
@@ -56,40 +53,6 @@ function M.item(key)
   end
 end
 
--- PRESET follows the six difficulty values: the matching preset, else CUSTOM
-function M.sync()
-  M.v.PRESET = 5
-  for p = 1, 4 do
-    local same = true
-    for i = 1, 6 do if M.v[M.DIFF[i]] ~= M.PRESET_V[p][i] then same = false end end
-    if same then M.v.PRESET = p end
-  end
-end
-
--- step the value of item it by dir (+1/-1), clamped; choosing a preset loads its values
-function M.change(it, dir)
-  local nv = M.v[it.key] + dir * (it.step or 1)
-  if nv < it.lo then nv = it.lo elseif nv > it.hi then nv = it.hi end
-  M.v[it.key] = nv
-  if it.key == "PRESET" then
-    if nv < 5 then
-      for i = 1, 6 do M.v[M.DIFF[i]] = M.PRESET_V[nv][i] end
-    end
-  else
-    M.sync()
-  end
-end
-
--- text shown in the settings list
-function M.label(it)
-  local v = M.v[it.key]
-  if it.key == "MARGIN" then return v .. " PX" end
-  if it.key == "CRASH_DELAY" then return math.floor(v / 10) .. "." .. (v % 10) .. " S" end
-  if it.names then return it.names[v - it.lo + 1] end
-  if it.key == "SEED" and v == 0 then return "RANDOM" end
-  return tostring(v)
-end
-
 function M.radius() return 4 + M.v.MARGIN end
 
 -- record key, e.g. m2d5s4a2c5t25 (+ M2 for a mode, S for scroll, C2 for coupled hands)
@@ -116,7 +79,6 @@ function M.load()
   local text = io.read(f, 512)
   io.close(f)
   if text then M.parse(text) end
-  M.sync()
 end
 
 -- returns false when the file can't be written (missing GATERUSH/ folder)

@@ -3,7 +3,7 @@ local T = dofile("tests/t.lua")
 local function setup()
   local h = T.H.new({ sd = "t_draw" })
   lcd.clear()
-  return h, require("draw")
+  return h, h.draw
 end
 
 T.test("quad sprite matches mockup sprite #1", function()
@@ -23,7 +23,7 @@ end)
 
 T.test("title icon matches renderer quad_icon()", function()
   local h, draw = setup()
-  draw.quadIcon(20, 20)
+  h.menus.icon(20, 20)
   T.eq(T.region(h.fb(), 14, 14, 13, 13), T.read("tests/golden/quad_icon.txt"))
 end)
 

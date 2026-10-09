@@ -1,22 +1,57 @@
--- GateRush entry: state machine, fixed 50 ms timestep, events, backlight.
-local config = require("config")
-local stats = require("stats")
-local input = require("input")
-local game = require("game")
-local screens = require("screens")
-local fx = require("fx")
+-- GateRush entry: module loader, state machine, fixed 50 ms timestep, events, backlight.
+-- The game lives in /SCRIPTS/TOOLS/GATERUSH/*.lua, loaded with loadScript (each file is compiled and
+-- cached as .luac on its own: one big file ran out of memory while compiling on the radio).
+-- Only one group is in memory at a time: menus (menus, stats) or play (game, track, draw, fx).
+local DIR = "/SCRIPTS/TOOLS/GATERUSH/"
+local loaded = {}
+
+local function use(name)
+  local m = loaded[name]
+  if not m then
+    local chunk, err = loadScript(DIR .. name .. ".lua")
+    if not chunk then error(err) end
+    m = chunk(use)
+    loaded[name] = m
+  end
+  return m
+end
+
+local config, input = use("config"), use("input")
+local menus, game
 
 local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED, WRECK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 
 local state, last, acc, frame = WARN, 0, 0, 0
 local ignoreUntil = 0
 local eatEnter = false -- the ENTER release that follows a long press
-local saveOk, modelName, best, sub = true, nil, "", ""
-local sel, editing, confirm = 1, false, false
+local saveOk, modelName = true, nil
 local hold = { 0, 0 }
 local count = 0 -- countdown / crash animation ticks
-local flash = 0
-local crash = {}
+
+-- switch the loaded group, freeing the other one first
+local function menuMode()
+  if game then
+    loaded.game, loaded.track, loaded.draw, loaded.fx, game = nil, nil, nil, nil, nil
+    collectgarbage()
+  end
+  if not menus then
+    menus = use("menus")
+    menus.saveOk = saveOk
+    menus.refresh()
+    collectgarbage() -- drop what loading/compiling left behind
+  end
+end
+
+local function playMode()
+  if menus then
+    loaded.menus, loaded.stats, menus = nil, nil, nil
+    collectgarbage()
+  end
+  if not game then
+    game = use("game")
+    collectgarbage()
+  end
+end
 
 -- events (virtual + legacy; some constants are nil on some radios)
 local function is(e, a, b, c, d)
@@ -33,92 +68,27 @@ local function isPrev(e)
   return is(e, EVT_VIRTUAL_PREV, EVT_VIRTUAL_DEC_REPT, EVT_VIRTUAL_PREV_PAGE, EVT_MINUS_BREAK)
 end
 
--- score as shown: m:ss, or % in sprint
-local function fmt(v)
-  if config.v.MODE == 2 then return v and v .. "%" or "--%" end
-  return stats.fmt(v)
-end
-
-local function refreshBest()
-  local v = config.v
-  best = v.MODE == 3 and "FREE FLIGHT" or "BEST " .. fmt(stats.best(config.hash()))
-  sub = saveOk and config.MODES[v.MODE] .. "  " .. config.PRESETS[v.PRESET] or "NO SAVE"
-end
-
 local function go(s)
   state = s
   ignoreUntil = getTime() + 30
-  if s == TITLE then refreshBest() end
+  if s >= COUNTDOWN and s ~= CRASHED then playMode() else menuMode() end
+  if s == TITLE then menus.refresh() end
   if s == CENTER then hold[1], hold[2] = 0, 0 end
-  if s == COUNTDOWN then
-    game.spawn(getTime())
-    count = 0
-  end
-  if s == RESUME then count = 0 end
+  if s == COUNTDOWN then game.spawn(getTime()) end
+  if s == COUNTDOWN or s == RESUME then count = 0 end
 end
 
--- result screen; quit = RTN from pause (never recorded); zen runs are never recorded
+-- result screen; quit = RTN from pause (never recorded)
 local function finish(quit)
-  local mode, key = config.v.MODE, config.hash()
-  local time, acc, seed = stats.fmt(game.ms()), "ACC " .. game.acc() .. "%", "SEED " .. game.seed
-  local gates = "GATES " .. game.gates
-  local record = not quit and mode ~= 3
-  crash.newBest = record and stats.add(key, game.score())
-  if record then stats.save() end
-  if mode == 2 then
-    crash.title = quit and "QUIT" or "FINISH"
-    crash.lines = { acc .. "  " .. gates, seed }
-  elseif mode == 3 then
-    crash.title = "ZEN"
-    crash.lines = { "TIME " .. time .. "  " .. acc, gates .. "  " .. seed }
-  else
-    local line1 = "TIME " .. time .. "  " .. (quit and "QUIT" or game.CAUSE[game.crashed])
-    if #line1 > 21 then line1 = "TIME " .. time .. " " .. (quit and "QUIT" or game.CAUSE[game.crashed]) end
-    crash.title = quit and "QUIT" or "CRASHED"
-    crash.lines = { line1, gates .. "  " .. acc, "SCORE " .. fmt(game.score()) .. "  " .. seed }
-  end
-  crash.rec = nil
-  if mode ~= 3 then
-    crash.rec = (crash.newBest and "NEW BEST!" or "BEST " .. fmt(stats.best(key))) .. "  AVG " .. fmt(stats.avg(key))
-  end
-  flash = quit and 0 or 2
+  local r = game.result(quit)
   go(CRASHED)
-end
-
-local function leaveSettings()
-  saveOk = config.save()
-  input.setRange(config.radius())
-  editing, confirm = false, false
-  refreshBest()
-  go(TITLE)
-end
-
-local function settingsEvent(e)
-  local it = screens.MENU[sel]
-  if editing then
-    if isNext(e) then config.change(it, 1)
-    elseif isPrev(e) then config.change(it, -1)
-    elseif isEnter(e) or isExit(e) then editing = false end
-    return
-  end
-  if isNext(e) then sel = sel % #screens.MENU + 1; confirm = false
-  elseif isPrev(e) then sel = (sel - 2) % #screens.MENU + 1; confirm = false
-  elseif isExit(e) then leaveSettings()
-  elseif isEnter(e) then
-    if it.key then editing = true
-    elseif it.action == "exit" then leaveSettings()
-    elseif confirm then
-      stats.reset(config.hash())
-      stats.save()
-      confirm = false
-    else confirm = true end
-  end
+  menus.finish(r)
 end
 
 -- countdown of 60 ticks with a beep per second; returns true when done
 local function countdown(steps)
   for _ = 1, steps do
-    if count % 20 == 0 then fx.beep(count < 60 and 600 or 1200, count < 60 and 80 or 250) end
+    if count % 20 == 0 then playTone(count < 60 and 600 or 1200, count < 60 and 80 or 250, 0, PLAY_NOW) end
     count = count + 1
     if count > 60 then return true end
   end
@@ -132,13 +102,18 @@ local function update(e, steps)
     if isLong(e) then
       killEvents(e)
       eatEnter = true
-      sel, editing, confirm = 1, false, false
+      menus.sel, menus.editing, menus.confirm = 1, false, false
       go(SETTINGS)
     elseif isEnter(e) then go(CENTER)
     elseif isExit(e) then return 1 end
   elseif state == SETTINGS then
-    settingsEvent(e)
-    refreshBest()
+    local ev = isNext(e) and "next" or isPrev(e) and "prev" or isEnter(e) and "enter" or isExit(e) and "exit"
+    if ev and menus.settingsEvent(ev) then
+      saveOk = config.save()
+      menus.saveOk = saveOk
+      input.setRange(config.radius())
+      go(TITLE)
+    end
   elseif state == CENTER then
     if isExit(e) then go(TITLE) return 0 end
     -- practice modes only need the stick of the hand in play
@@ -168,7 +143,7 @@ local function update(e, steps)
       if game.finished then finish(false) break end
     end
   elseif state == WRECK then
-    count = count + steps -- props fly off for 0.6 s, then the result
+    count = count + steps -- props fly off for 0.6 s (the last 2 frames flash), then the result
     if count >= 12 then finish(false) end
   elseif state == PAUSE then
     if isEnter(e) then go(RESUME) elseif isExit(e) then finish(true) end
@@ -180,37 +155,33 @@ end
 
 local function render()
   lcd.clear()
-  if state == WARN then screens.warn(modelName)
-  elseif state == TITLE then screens.title(best, sub)
-  elseif state == SETTINGS then screens.settings(sel, editing, confirm)
-  elseif state == CENTER then screens.centerSticks(hold[1] / 10, hold[2] / 10)
-  elseif state == CRASHED and flash == 0 then screens.crashed(crash)
+  if state == WARN then menus.warn(modelName)
+  elseif state == TITLE then menus.title()
+  elseif state == SETTINGS then menus.settings()
+  elseif state == CENTER then menus.centerSticks(hold[1] / 10, hold[2] / 10)
+  elseif state == CRASHED then menus.result()
   else
     game.drawWorld()
     if state == COUNTDOWN or state == RESUME then
       local n = 3 - math.floor(count / 20)
-      screens.count(n < 1 and 1 or n, game.qy, game.on)
+      game.count(n < 1 and 1 or n)
     end
     if state == WRECK then game.drawDebris(count) else game.drawQuads(frame) end
     if state ~= COUNTDOWN then game.drawHud() end
-    if state == PAUSE then screens.pause()
-    elseif state == CRASHED then
-      lcd.drawFilledRectangle(0, 0, LCD_W, LCD_H) -- invert flash
-      flash = flash - 1
-    end
+    if state == PAUSE then game.pause()
+    elseif state == WRECK and count >= 10 then lcd.drawFilledRectangle(0, 0, LCD_W, LCD_H) end -- flash
   end
 end
 
 local function init()
   config.load()
   saveOk = config.save()
-  stats.load()
   input.setRange(config.radius())
   if model and model.getInfo then
     local ok, info = pcall(model.getInfo)
     if ok and info and info.name and info.name ~= "" then modelName = string.upper(string.sub(info.name, 1, 11)) end
   end
-  refreshBest()
+  menuMode()
   last = getTime()
   ignoreUntil = last + 40
 end
@@ -231,9 +202,10 @@ local function run(event)
   if now < ignoreUntil then event = 0 end
   input.read(config.v.STICK_MODE)
   local r = update(event, steps)
-  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end -- WRECK too
+  if state >= CENTER and state ~= PAUSE and state ~= CRASHED then lcd.resetBacklightTimeout() end
   render()
   return r
 end
 
-return { init = init, run = run }
+-- use/state are for the test harness; EdgeTX only looks at init and run
+return { init = init, run = run, use = use, state = function() return state end }

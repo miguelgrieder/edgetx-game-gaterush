@@ -12,7 +12,7 @@ local approve = os.getenv("APPROVE") == "1"
 local function render(name, target)
   local sc = dofile("inputs/" .. name .. ".lua")
   local h = T.H.new({ target = target, sd = "golden_" .. name, setup = sc.setup })
-  local ctx = { game = h.game, input = h.input, track = h.track, h = h }
+  local ctx = h.ctx
   local maxCalls = 0
   for f = 1, sc.frames do
     h.step(sc.fn(f, h.S.clock + 5, ctx))
