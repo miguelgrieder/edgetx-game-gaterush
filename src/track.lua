@@ -6,6 +6,7 @@ local M = {}
 M.FADE = 9 -- points behind the tail that fade out (3 per dither age)
 M.CAP = 80 + M.FADE + 1
 M.STEP_PX = 4 -- target spacing of outline vertices
+M.MAXV = 45 -- max outline vertices per tunnel (2 lines each)
 
 local cos, sin, floor = math.cos, math.sin, math.floor
 
@@ -97,7 +98,10 @@ function M.draw(T, xo, rt, v)
   local tail = M.tail(T)
   local first = tail - M.FADE
   if first < 1 then first = 1 end
+  -- ~4 px between vertices, but never more than MAXV vertices (draw-call budget at high speed)
   local stride = floor(M.STEP_PX / v + 0.5)
+  local need = math.ceil((T.head - first + 1) / M.MAXV)
+  if stride < need then stride = need end
   if stride < 1 then stride = 1 end
   local CAP, X, Y, C, S = M.CAP, T.x, T.y, T.c, T.s
   local lx, ly, rx, ry, pa
