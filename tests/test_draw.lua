@@ -81,3 +81,28 @@ T.test("default drawFilledRectangle inverts (XOR) like the firmware", function()
   T.eq(h.fb():get(5, 5), 0)
   T.eq(h.fb():get(4, 4), 1)
 end)
+
+T.test("skins: 8 designs, both frames rebuild from rects, props spin on frame 2", function()
+  local h, draw = setup()
+  T.eq(draw.SKIN_COUNT, 8)
+  local differ = 0
+  for n = 1, 8 do
+    lcd.clear()
+    draw.skin(n, 20, 20, 1)
+    local a = T.region(h.fb(), 16, 16, 9, 9)
+    lcd.clear()
+    draw.skin(n, 20, 20, 2)
+    local b = T.region(h.fb(), 16, 16, 9, 9)
+    if a ~= b then differ = differ + 1 end
+    T.ok(a:find("#"), "skin " .. n .. " empty")
+  end
+  T.ok(differ >= 4, "animated skins: " .. differ)
+  lcd.clear()
+  draw.skin(1, 20, 20, 1)
+  T.eq(T.region(h.fb(), 16, 16, 9, 9), T.read("tests/golden/quad_sprite1.txt"))
+  -- a skin clears the tunnel lines under its disc
+  lcd.clear()
+  lcd.drawFilledRectangle(10, 10, 20, 20, FORCE)
+  draw.skin(2, 20, 20, 1)
+  T.eq(h.fb():get(18, 18), 0)
+end)

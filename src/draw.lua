@@ -10,9 +10,9 @@ local function rects(rows, scale)
     local row, runs = rows[y] or "", {}
     local x = 1
     while x <= #row do
-      if sub(row, x, x) == "1" then
+      if sub(row, x, x) == "1" or sub(row, x, x) == "#" then
         local x2 = x
-        while sub(row, x2 + 1, x2 + 1) == "1" do x2 = x2 + 1 end
+        while sub(row, x2 + 1, x2 + 1) == "1" or sub(row, x2 + 1, x2 + 1) == "#" do x2 = x2 + 1 end
         runs[x * 16 + x2] = true
         x = x2 + 1
       else
@@ -43,7 +43,7 @@ local F3 = {
   ["4"] = { "101", "101", "111", "001", "001" }, ["5"] = { "111", "100", "111", "001", "111" },
   ["6"] = { "111", "100", "111", "101", "111" }, ["7"] = { "111", "001", "001", "001", "001" },
   ["8"] = { "111", "101", "111", "101", "111" }, ["9"] = { "111", "101", "111", "001", "111" },
-  [":"] = { "000", "010", "000", "010", "000" },
+  [":"] = { "000", "010", "000", "010", "000" }, ["%"] = { "101", "001", "010", "100", "101" },
 }
 M.small = {}
 for k, rows in pairs(F3) do M.small[k] = rects(rows, 1) end
@@ -88,6 +88,66 @@ function M.quad(x, y, crash)
   lcd.drawLine(x - 2, y - 2, x + 2, y + 2, SOLID, FORCE)
   lcd.drawLine(x - 2, y + 2, x + 2, y - 2, SOLID, FORCE)
   lcd.drawPoint(x, y, ERASE)
+end
+
+-- selectable quads (sprite sheet #1 #2 #3 #4 #5 #10 #7 #9), same order as config.SKINS;
+-- frame 2 spins the props: full 2x2 corner props become their outer diagonal
+local SKINS = {
+  { "...###...", "..#####..", ".#.###.#.", "###.#.###", "#########", "###.#.###", ".#.###.#.", "..#####..", "...###..." },
+  { "#.......#", "..#####..", ".#.....#.", ".#.....#.", ".#..#..#.", ".#.....#.", ".#.....#.", "..#####..", "#.......#" },
+  { "##.....##", "##.#.#.##", "..#...#..", "...###...", "#..###..#", "...###...", "..#...#..", "##.#.#.##", "##.....##" },
+  { "##.....##", "##.###.##", "..#####..", ".#######.", ".#######.", ".#######.", "..#####..", "##.###.##", "##.....##" },
+  { "#.......#", ".#.....#.", "..#...#..", "...###...", "....#....", "...###...", "..#...#..", ".#.....#.", "#.......#" },
+  { "...###...", "...#.#...", "...###...", "###.#.###", "#.#####.#", "###.#.###", "...###...", "...#.#...", "...###..." },
+  { "....#....", "...###...", "..#####..", ".###.###.", "###...###", ".###.###.", "..#####..", "...###...", "....#...." },
+  { "##.....##", "###...###", ".###.###.", "..#####..", "...#.#...", "..#####..", ".###.###.", "###...###", "##.....##" },
+}
+-- the disc spins its erased X into a +
+local DISC2 = { "...#.#...", "..##.##..", ".###.###.", "####.####", "#...#...#", "####.####", ".###.###.", "..##.##..", "...#.#..." }
+
+local function spin(rows)
+  local out = {}
+  for y = 1, 9 do
+    local r = ""
+    for x = 1, 9 do
+      local c = string.sub(rows[y], x, x)
+      local cx, cy = x <= 2 and 1 or (x >= 8 and 9 or 0), y <= 2 and 1 or (y >= 8 and 9 or 0)
+      if cx > 0 and cy > 0 then
+        local full = true
+        for yy = math.min(cy, cy == 1 and 2 or 8), math.max(cy, cy == 1 and 2 or 8) do
+          for xx = math.min(cx, cx == 1 and 2 or 8), math.max(cx, cx == 1 and 2 or 8) do
+            if string.sub(rows[yy], xx, xx) ~= "#" then full = false end
+          end
+        end
+        if full and (x == cx) ~= (y == cy) then c = "." end
+      end
+      r = r .. c
+    end
+    out[y] = r
+  end
+  return out
+end
+
+-- rect lists exist only for the two skins in use (memory); call prepare() when a run starts
+M.skins = {}
+M.SKIN_COUNT = #SKINS
+function M.prepare(a, b)
+  for k in pairs(M.skins) do
+    if k ~= a and k ~= b then M.skins[k] = nil end
+  end
+  for _, n in ipairs({ a, b }) do
+    if not M.skins[n] then M.skins[n] = { rects(SKINS[n], 1), rects(n == 1 and DISC2 or spin(SKINS[n]), 1) } end
+  end
+end
+
+-- skin n at (x, y), frame 1 or 2: clear the disc under it, then the sprite
+function M.skin(n, x, y, frame)
+  if n == 1 and frame == 1 then return M.quad(x, y) end
+  for i = 1, #DISC, 4 do
+    lcd.drawFilledRectangle(x + DISC[i], y + DISC[i + 1], DISC[i + 2], DISC[i + 3], ERASE)
+  end
+  if not M.skins[n] then M.prepare(n, n) end
+  M.glyph(M.skins[n][frame], x - 4, y - 4)
 end
 
 -- 11x11 quad silhouette for the title
