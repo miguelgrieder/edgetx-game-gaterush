@@ -97,16 +97,20 @@ T.test("chokes narrow the tunnel and leave one gate in the middle", function()
   local radii = {}
   for _ = 1, 300 do
     track.step(Tr, 1, 0, 8, 55, 9, 0)
-    radii[Tr.head] = Tr.r[track.idx(Tr.head)]
+    radii[Tr.head] = true
   end
   T.ok(#Tr.gates >= 2, "gates: " .. #Tr.gates)
-  local g = Tr.gates[1]
-  T.eq(radii[g], 4) T.eq(radii[g - 1], 4) T.eq(radii[g - 2], 5) T.eq(radii[g + 2], 5) T.eq(radii[g + 3], 6)
+  local g
+  for k = 1, #Tr.gates do
+    if Tr.gates[k] - 2 >= Tr.tail and Tr.gates[k] + 3 <= Tr.head then g = Tr.gates[k] end
+  end
+  local rad = track.rad
+  T.eq(rad(Tr, g), 4) T.eq(rad(Tr, g - 1), 4) T.eq(rad(Tr, g - 2), 5) T.eq(rad(Tr, g + 2), 5) T.eq(rad(Tr, g + 3), 6)
   -- a 4 px radius tunnel never chokes below 3
   track.reset(Tr, 31.5, 31.5, 8, 115, 4, false)
   for _ = 1, 300 do
     track.step(Tr, 1, 0, 6, 57, 7, 0)
-    T.ok(Tr.r[track.idx(Tr.head)] >= 3)
+    T.ok(track.rad(Tr, Tr.head) >= 3)
   end
 end)
 
@@ -151,7 +155,7 @@ local function straight(track, len)
   track.reset(Tr, 10, 30, 1, len or 40, 6, false)
   for n = 1, 31 do
     local i = track.idx(n)
-    Tr.x[i], Tr.y[i], Tr.c[i], Tr.s[i], Tr.r[i] = 9 + n, 30, 1, 0, 6
+    Tr.x[i], Tr.y[i] = 9 + n, 30
   end
   Tr.head, Tr.hx, Tr.hy, Tr.near, Tr.h = 31, 40, 30, 1, 0
   Tr.tail = math.max(1, 31 - (len or 40) + 1)
@@ -175,7 +179,7 @@ end)
 T.test("a choke's smaller radius is what counts", function()
   local _, track = setup()
   local Tr = straight(track)
-  for n = 15, 17 do Tr.r[track.idx(n)] = 4 end
+  Tr.chokes[1] = 16 -- radius 5, 4, 4, 4, 5 around point 16 (x=25)
   local _, _, r = track.near(Tr, 25.5, 35)
   T.eq(r, 4)
 end)

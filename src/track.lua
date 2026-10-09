@@ -1,7 +1,9 @@
--- Tunnel: ring buffer of centerline points, maneuver-driven head (with stop/reverse and bursts),
--- chokes with gate posts, fading tail, outline, distance. Coordinates are half-local; in scroll
--- mode y is a world coordinate and T.cam is subtracted when drawing.
-local draw = require("draw")
+-- Tunnel: ring buffer of centerline points (positions only: directions and choke radii are derived
+-- when needed, to save memory), maneuver-driven head with stop/reverse and bursts, chokes with gate
+-- posts, fading tail, outline, distance. Coordinates are half-local; in scroll mode y is a world
+-- coordinate and T.cam is subtracted when drawing.
+local use = ...
+local draw = use("draw")
 
 local M = {}
 
@@ -11,7 +13,7 @@ M.STEP_PX = 4 -- target spacing of outline vertices
 M.MAXV = 38 -- max outline vertices per tunnel (2 lines each)
 M.MINLEN = 8 -- a reversing head never eats the tunnel below this many points
 
-local cos, sin, floor, pi = math.cos, math.sin, math.floor, math.pi
+local cos, sin, floor, pi, sqrt = math.cos, math.sin, math.floor, math.pi, math.sqrt
 
 -- maneuvers, in unlock order; UNLOCK = seconds alive before it can be picked
 local STRAIGHT, CURVE, ESS, SLALOM, ZIGZAG, BURST, HAIRPIN, STOP, SPIRAL = 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -27,8 +29,8 @@ for i = 0, 8 do
 end
 
 function M.new()
-  local T = { x = {}, y = {}, c = {}, s = {}, r = {}, gates = {} }
-  for i = 1, M.CAP do T.x[i], T.y[i], T.c[i], T.s[i], T.r[i] = 0, 0, 1, 0, 6 end
+  local T = { x = {}, y = {}, gates = {}, chokes = {} }
+  for i = 1, M.CAP do T.x[i], T.y[i] = 0, 0 end
   return T
 end
 
@@ -37,17 +39,45 @@ local function rnd(T)
   T.seed = (T.seed * 16807) % 2147483647
   return T.seed / 2147483647
 end
-M.rnd = rnd
 
 local function idx(n) return (n - 1) % M.CAP + 1 end
 M.idx = idx
 
-local function put(T, x, y, h, r)
+-- tunnel radius at point n (narrower around choke centers)
+local function rad(T, n)
+  local C, r = T.chokes, T.rt
+  for k = 1, #C do
+    local d = n - C[k]
+    if d >= -2 and d <= 2 then
+      local cut = M.CHOKE[d + 3]
+      if cut > r - 3 then cut = r - 3 end
+      return r - cut
+    end
+  end
+  return r
+end
+M.rad = rad
+
+-- unit direction of the centerline at point n (from its neighbours inside a..b)
+local function dir(T, n, a, b)
+  local p, q = n > a and n - 1 or n, n < b and n + 1 or n
+  local i, j = idx(p), idx(q)
+  local dx, dy = T.x[j] - T.x[i], T.y[j] - T.y[i]
+  local l = sqrt(dx * dx + dy * dy)
+  if l < 1e-6 then return cos(T.h), sin(T.h) end
+  return dx / l, dy / l
+end
+
+local function put(T, x, y, h)
   T.head = T.head + 1
   if T.head - T.tail + 1 > T.len then T.tail = T.tail + 1 end
   local i = idx(T.head)
-  T.x[i], T.y[i], T.c[i], T.s[i], T.r[i] = x, y, cos(h), sin(h), r
+  T.x[i], T.y[i] = x, y
   T.hx, T.hy, T.h = x, y, h
+end
+
+local function clear(t)
+  for k = #t, 1, -1 do t[k] = nil end
 end
 
 -- spawn at (x, y): the tail stays here until the tunnel reaches len points
@@ -58,8 +88,9 @@ function M.reset(T, x, y, seed, len, rt, scroll)
   T.man, T.mt, T.m0, T.vm = STRAIGHT, 30, 30, 1 -- straight start
   T.gt, T.gc = 50 + floor(rnd(T) * 40), 0 -- ticks to the next choke, points left in the current one
   T.hover, T.newGate = false, nil
-  for k = #T.gates, 1, -1 do T.gates[k] = nil end
-  put(T, x, y, scroll and -pi / 2 or rnd(T) * 2 * pi, rt)
+  clear(T.gates)
+  clear(T.chokes)
+  put(T, x, y, scroll and -pi / 2 or rnd(T) * 2 * pi)
 end
 
 function M.tail(T) return T.tail end
@@ -75,7 +106,12 @@ local function pick(T, tsec, kmax)
   if m == SLALOM or m == ZIGZAG or m == SPIRAL then mt = mt + 16
   elseif m == HAIRPIN then mt = 60
   elseif m == BURST then T.vm = 1.8
-  elseif m == STOP then mt, T.mp, T.gc = 10 + floor(rnd(T) * 6), 1, 0
+  elseif m == STOP then
+    mt, T.mp = 10 + floor(rnd(T) * 6), 1
+    -- a choke still ahead of the head is cancelled
+    local C = T.chokes
+    if T.gc > 0 and C[#C] and C[#C] > T.head then C[#C] = nil end
+    T.gc = 0
   end
   T.man, T.ms, T.mt, T.m0 = m, sg, mt, mt
 end
@@ -102,8 +138,11 @@ local function stop(T)
   if T.mp == 2 then
     if T.mt >= 0 and T.head - T.tail + 1 > M.MINLEN then
       T.head = T.head - 1
-      local i = idx(T.head)
-      T.hx, T.hy, T.h = T.x[i], T.y[i], math.atan2(T.s[i], T.c[i])
+      local i, j = idx(T.head), idx(T.head - 1)
+      T.hx, T.hy = T.x[i], T.y[i]
+      if T.head > T.tail then T.h = math.atan2(T.y[i] - T.y[j], T.x[i] - T.x[j]) end
+      local C = T.chokes
+      if C[#C] and C[#C] > T.head then C[#C] = nil end
       return true
     end
     T.mp, T.mt = 3, 4
@@ -151,32 +190,40 @@ function M.step(T, v, kmax, lo, hi, rmin, tsec)
     if y - T.cam < lo + 4 then T.cam = y - lo - 4 end
   elseif y < lo then y = lo elseif y > hi then y = hi end
   -- chokes: every few seconds the next 5 points narrow, the middle one is a gate
-  local r = T.rt
-  if T.gc > 0 then
-    local d = M.CHOKE[6 - T.gc]
-    if d > T.rt - 3 then d = T.rt - 3 end
-    r = r - d
-    T.gc = T.gc - 1
-  else
+  local C = T.chokes
+  if T.gc == 0 then
     T.gt = T.gt - 1
-    if T.gt <= 0 and T.man ~= STOP then T.gc, T.gt = 5, 60 + floor(rnd(T) * 40) end
+    if T.gt <= 0 and T.man ~= STOP then
+      T.gc, T.gt = 5, 60 + floor(rnd(T) * 40)
+      C[#C + 1] = T.head + 3
+    end
   end
-  put(T, x, y, h, r)
-  if T.gc == 2 then
-    T.gates[#T.gates + 1] = T.head
-    T.newGate = T.head
+  put(T, x, y, h)
+  if T.gc > 0 then
+    T.gc = T.gc - 1
+    if T.gc == 2 then
+      T.gates[#T.gates + 1] = T.head
+      T.newGate = T.head
+    end
+  end
+  -- forget chokes that left the faded tail
+  while C[1] and C[1] < T.tail - M.FADE - 2 do
+    for k2 = 1, #C do C[k2] = C[k2 + 1] end
   end
 end
 
 -- coupled hands: D follows S; mode 2 mirror, 3 copy, 4 invert (mirror + upside down); mid2 = lo + hi
 function M.copy(D, S, mode, mid2)
   D.head, D.tail, D.len, D.cam, D.hover, D.newGate = S.head, S.tail, S.len, S.cam, S.hover, S.newGate
+  D.rt = S.rt
   local i = idx(S.head)
-  local x, y, c, s = S.x[i], S.y[i], S.c[i], S.s[i]
-  if mode ~= 3 then x, c = mid2 - x, -c end
-  if mode == 4 then y, s = mid2 - y, -s end
-  D.x[i], D.y[i], D.c[i], D.s[i], D.r[i] = x, y, c, s, S.r[i]
-  D.hx, D.hy, D.h = x, y, math.atan2(s, c)
+  local x, y, h = S.x[i], S.y[i], S.h
+  if mode ~= 3 then x, h = mid2 - x, pi - h end
+  if mode == 4 then y, h = mid2 - y, -h end
+  D.x[i], D.y[i], D.hx, D.hy, D.h = x, y, x, y, h
+  local SC, DC = S.chokes, D.chokes
+  for k = 1, #SC do DC[k] = SC[k] end
+  for k = #DC, #SC + 1, -1 do DC[k] = nil end
   if S.newGate then D.gates[#D.gates + 1] = S.newGate end
 end
 
@@ -186,9 +233,10 @@ local function age(n, tail)
   return 1 + floor((tail - 1 - n) / 3)
 end
 
-local function cap(T, i, xo, dir, pat)
-  local x, y, rt = T.x[i] + xo, T.y[i] - T.cam, T.r[i]
-  local c, s = T.c[i] * dir, T.s[i] * dir
+-- rounded end at point n facing (c, s)
+local function cap(T, n, xo, c, s, pat)
+  local i = idx(n)
+  local x, y, rt = T.x[i] + xo, T.y[i] - T.cam, rad(T, n)
   local px, py
   for a = 0, 8 do
     local nx = floor(x + rt * (c * CA[a] - s * SA[a]) + 0.5)
@@ -208,12 +256,14 @@ function M.draw(T, xo, v)
   local need = math.ceil((head - first + 1) / M.MAXV)
   if stride < need then stride = need end
   if stride < 1 then stride = 1 end
-  local X, Y, C, S, R = T.x, T.y, T.c, T.s, T.r
+  local X, Y = T.x, T.y
   local lx, ly, rx, ry, pa, pr
   for n = first, head do
-    local i = idx(n)
-    if n == first or n == head or n % stride == 0 or R[i] ~= pr then
-      local x, y, ox, oy = X[i] + xo, Y[i] - yo, -S[i] * R[i], C[i] * R[i]
+    local r = rad(T, n)
+    if n == first or n == head or n % stride == 0 or r ~= pr then
+      local i = idx(n)
+      local c, s = dir(T, n, first, head)
+      local x, y, ox, oy = X[i] + xo, Y[i] - yo, -s * r, c * r
       local nlx, nly = floor(x + ox + 0.5), floor(y + oy + 0.5)
       local nrx, nry = floor(x - ox + 0.5), floor(y - oy + 0.5)
       if lx then
@@ -223,16 +273,20 @@ function M.draw(T, xo, v)
       end
       lx, ly, rx, ry, pa = nlx, nly, nrx, nry, age(n, tail)
     end
-    pr = R[i]
+    pr = r
   end
-  cap(T, idx(head), xo, 1, SOLID)
-  cap(T, idx(first), xo, -1, draw.PAT[age(first, tail)])
+  local c, s = dir(T, head, first, head)
+  cap(T, head, xo, c, s, SOLID)
+  c, s = dir(T, first, first, head)
+  cap(T, first, xo, -c, -s, draw.PAT[age(first, tail)])
   -- gate posts: short ticks just outside both walls
   for k = 1, #T.gates do
     local n = T.gates[k]
     if n >= tail and n <= head then
       local i = idx(n)
-      local x, y, nx, ny, r = X[i] + xo, Y[i] - yo, -S[i], C[i], R[i]
+      local x, y, r = X[i] + xo, Y[i] - yo, rad(T, n)
+      local gc, gs = dir(T, n, first, head)
+      local nx, ny = -gs, gc
       draw.line(floor(x + nx * (r + 1) + 0.5), floor(y + ny * (r + 1) + 0.5),
         floor(x + nx * (r + 3) + 0.5), floor(y + ny * (r + 3) + 0.5), SOLID)
       draw.line(floor(x - nx * (r + 1) + 0.5), floor(y - ny * (r + 1) + 0.5),
@@ -252,7 +306,8 @@ local function seg(T, n, qx, qy)
   if l2 > 0 then t = ((qx - ax) * dx + (qy - ay) * dy) / l2 end
   local tc = t < 0 and 0 or (t > 1 and 1 or t)
   local ex, ey = ax + dx * tc - qx, ay + dy * tc - qy
-  return ex * ex + ey * ey, t, T.r[i] + (T.r[j] - T.r[i]) * tc
+  local ra = rad(T, n)
+  return ex * ex + ey * ey, t, ra + (rad(T, n + 1) - ra) * tc
 end
 
 local function scan(T, a, b, qx, qy)
@@ -271,7 +326,7 @@ function M.near(T, qx, qy)
   if head == tail then
     local i = idx(head)
     local ex, ey = T.x[i] - qx, T.y[i] - qy
-    return ex * ex + ey * ey, false, T.r[i]
+    return ex * ex + ey * ey, false, rad(T, head)
   end
   local a, b = T.near - 12, T.near + 12
   if a < tail then a = tail end
