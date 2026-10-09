@@ -20,7 +20,7 @@ H.mock.mkdirp(out)
 local input = dofile(args.script)
 local opts = type(input) == "table" and input or { fn = input }
 local name = args.script:match("([^/\\]+)%.lua$")
-local frames = tonumber(args.frames or opts.frames or 600)
+local frames = tonumber(args.frames) or math.max(600, opts.frames or 0) -- at least 600 frames per scenario
 local h = H.new({ target = args.target or opts.target or "dist", sd = "frames_" .. name, stickMode = opts.stickMode, modelName = opts.modelName,
   setup = opts.setup })
 local realio = h.S.realio

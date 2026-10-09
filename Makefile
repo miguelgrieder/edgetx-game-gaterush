@@ -24,8 +24,10 @@ calibrate:
 frames: build
 	@for s in $(SCENARIOS); do $(LUA) tools/run_frames.lua --script inputs/$$s.lua --out out/$$s || exit 1; done
 
-lint:
-	luacheck src tools tests
+# luacheck if installed; the built file must never write a global
+lint: build
+	-luacheck src tools tests
+	@! $(LUAC) -l -p dist/SCRIPTS/TOOLS/gaterush.lua | grep 'SETTABUP.*_ENV' || (echo "global write in dist"; exit 1)
 
 # Level 2: real firmware (Companion simulator DLLs, Windows x64), see tools/simhost/README.md
 SIMU_DLLS ?= ../companion/bin
