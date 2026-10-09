@@ -2,7 +2,7 @@
 LUA ?= lua5.2
 LUAC ?= luac5.2
 PY ?= python3
-SCENARIOS = $(basename $(notdir $(wildcard inputs/*.lua)))
+SCENARIOS = $(filter-out _%,$(basename $(notdir $(wildcard inputs/*.lua))))
 
 .PHONY: all build test frames sim dist clean lint
 
@@ -16,7 +16,7 @@ test: build
 	$(LUA) tests/run_all.lua
 
 frames: build
-	@for s in $(SCENARIOS); do $(LUA) tools/run_frames.lua --frames 600 --script inputs/$$s.lua --out out/$$s || exit 1; done
+	@for s in $(SCENARIOS); do $(LUA) tools/run_frames.lua --script inputs/$$s.lua --out out/$$s || exit 1; done
 
 lint:
 	luacheck src tools tests
