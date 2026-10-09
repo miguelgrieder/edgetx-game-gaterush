@@ -21,9 +21,14 @@ function H.new(opts)
   -- libraries a tool script does not get on the radio (verified in the firmware simulator)
   local HIDDEN = { "table", "os", "debug", "coroutine" }
   local saved = {}
+  -- EdgeTX does not set the string metatable: ("x"):sub() fails on the radio
+  local smeta = getmetatable("")
   local function radio(f, ...)
     for _, k in ipairs(HIDDEN) do saved[k] = rawget(_G, k); rawset(_G, k, nil) end
+    local sidx = smeta.__index
+    smeta.__index = nil
     local ok, r = pcall(f, ...)
+    smeta.__index = sidx
     for _, k in ipairs(HIDDEN) do rawset(_G, k, saved[k]) end
     if not ok then error(r, 0) end
     return r

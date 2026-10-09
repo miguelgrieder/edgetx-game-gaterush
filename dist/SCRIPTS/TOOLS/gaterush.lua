@@ -184,38 +184,35 @@ local draw = (function()
 local M = {}
 
 -- glyph bitmaps (rows) -> flat rect lists {x, y, w, h, ...}: one rect per run, runs merged downwards
+-- (string.sub, not row:sub: EdgeTX does not set the string metatable)
 local function rects(rows, scale)
-  local out, open = {}, {}
+  local out, open = {}, {} -- open[x0 * 16 + x1] = top row of a run still growing downwards
+  local sub = string.sub
   for y = 1, #rows + 1 do
     local row, runs = rows[y] or "", {}
     local x = 1
     while x <= #row do
-      if row:sub(x, x) == "1" then
+      if sub(row, x, x) == "1" then
         local x2 = x
-        while row:sub(x2 + 1, x2 + 1) == "1" do x2 = x2 + 1 end
-        runs[#runs + 1] = x .. ":" .. x2
+        while sub(row, x2 + 1, x2 + 1) == "1" do x2 = x2 + 1 end
+        runs[x * 16 + x2] = true
         x = x2 + 1
       else
         x = x + 1
       end
     end
-    local still = {}
-    for run, r in pairs(open) do
-      local found = false
-      for i = 1, #runs do if runs[i] == run then found = true end end
-      if found then still[run] = r else
+    for key, top in pairs(open) do
+      if not runs[key] then
+        local x0, x1 = math.floor(key / 16), key % 16
         local n = #out
-        out[n + 1], out[n + 2], out[n + 3], out[n + 4] = r[1] * scale, r[2] * scale, r[3] * scale, (y - 1 - r[2]) * scale
+        out[n + 1], out[n + 2], out[n + 3], out[n + 4] = (x0 - 1) * scale, top * scale, (x1 - x0 + 1) * scale,
+          (y - 1 - top) * scale
+        open[key] = nil
       end
     end
-    for i = 1, #runs do
-      local run = runs[i]
-      if not still[run] then
-        local a, b = run:match("(%d+):(%d+)")
-        still[run] = { tonumber(a) - 1, y - 1, tonumber(b) - tonumber(a) + 1 }
-      end
+    for key in pairs(runs) do
+      if not open[key] then open[key] = y - 1 end
     end
-    open = still
   end
   return out
 end

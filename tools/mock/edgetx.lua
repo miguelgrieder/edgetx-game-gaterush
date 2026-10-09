@@ -1,5 +1,6 @@
 -- Fake EdgeTX B&W (TX12 / PCB=X7) Lua API with firmware-accurate drawing (docs/research/lcd_semantics.md).
 -- install() replaces the globals; anything not on the B&W API raises a clear error.
+-- Code that runs inside the radio sandbox (lcd/io functions) uses string.x(s) calls, not s:x().
 local here = (debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./")
 local FB = dofile(here .. "framebuffer.lua")
 local realio, realos = io, os
@@ -155,7 +156,7 @@ function M.install(opts)
     local font = FONTS[size] or FONTS[0]
     local w = 0
     for k = 1, #s do
-      local g = font.glyphs[s:byte(k)] or font.glyphs[32]
+      local g = font.glyphs[string.byte(s, k)] or font.glyphs[32]
       for i = 1, font.w do
         local col = g[i]
         if not (col == 0xff or (type(col) == "table" and col[1] == 0xff and col[2] == 0xff)) then w = w + 1 end
@@ -204,7 +205,7 @@ function M.install(opts)
     local origX = x
     if flags % 8 >= 4 then x = x - textWidth(s, flags)
     elseif flags % 64 >= 32 then x = x - math.floor(textWidth(s, flags) / 2) end
-    for k = 1, #s do x = putChar(x, y, s:byte(k), flags) end
+    for k = 1, #s do x = putChar(x, y, string.byte(s, k), flags) end
     S.lastRight, S.lastLeft = x, origX
     if (flags - flags % 0x100) % 0x800 == 0x300 then S.lastRight = x + 1 end
     if flags % 8 >= 4 then S.lastLeft, S.lastRight = x - textWidth(s, flags), origX end
@@ -246,7 +247,7 @@ function M.install(opts)
   function eio.open(path, mode)
     local real = sdpath(path)
     if not real then return nil end
-    local f = realio.open(real, (mode or "r"):gsub("b", "") .. "b")
+    local f = realio.open(real, string.gsub(mode or "r", "b", "") .. "b")
     if not f then return nil end
     return { f = f }
   end
@@ -289,7 +290,7 @@ function M.install(opts)
 
   setmetatable(_G, {
     __index = function(_, k)
-      if OPTIONAL[k] or (opts.noLegacy and type(k) == "string" and k:match("^EVT_")) then return nil end
+      if OPTIONAL[k] or (opts.noLegacy and type(k) == "string" and string.match(k, "^EVT_")) then return nil end
       error("global '" .. tostring(k) .. "' does not exist in the EdgeTX B&W API", 2)
     end,
     __newindex = function(_, k) error("script tried to create global '" .. tostring(k) .. "'", 2) end,
