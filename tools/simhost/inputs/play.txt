@@ -1,0 +1,7 @@
+# warning -> title -> center sticks -> countdown -> play centered -> left stick to a corner -> crash
+0     0 0 0 0
+1200  0 0 0 0 enter
+2400  0 0 0 0 enter
+9000  0 0 0 0
+9500  0 0 1024 -1024
+13000 0 0 1024 -1024

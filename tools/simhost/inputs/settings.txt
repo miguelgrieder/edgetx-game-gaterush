@@ -1,0 +1,14 @@
+# title -> hold ENT -> settings, edit CRASH DELAY with the roller, PAGE keys, exit (saves)
+0     0 0 0 0
+1200  0 0 0 0 enter
+2400  0 0 0 0 enter_long
+3600  0 0 0 0 rot_next
+4000  0 0 0 0 enter
+4400  0 0 0 0 rot_next
+4800  0 0 0 0 enter
+5200  0 0 0 0 pagedn
+5600  0 0 0 0 pagedn
+6000  0 0 0 0 pagedn
+6400  0 0 0 0 pagedn
+6800  0 0 0 0 exit
+7600  0 0 0 0
