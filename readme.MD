@@ -54,8 +54,8 @@ Throttle sticks usually have no spring: center it by hand on CENTER STICKS.
 - Tunnels spawn at the center of each half, straight and slow. For the first 1.5 s after GO nothing counts as out.
 - You are **out** when the quad's **center** leaves the tunnel (more than the tunnel radius from its centerline),
   or when the tail end passes your quad. While out: the quad blinks with the crash sprite, the `L`/`R` corner
-  lights up, a 300 Hz beep + short vibration play every 250 ms and a bar under the timer runs down.
-  Get back in before it empties and everything resets; otherwise **CRASHED** (cause: LEFT HAND, RIGHT HAND or TAIL).
+  lights up and a 300 Hz beep + short vibration play (at most every 250 ms).
+  Get back in within CRASH DELAY and everything resets; otherwise **CRASHED** (cause: LEFT HAND, RIGHT HAND or TAIL).
 - The head speeds up and the maximum curvature grows with time alive (no levels).
 
 ## Settings
@@ -63,11 +63,11 @@ Throttle sticks usually have no spring: center it by hand on CENTER STICKS.
 | setting | range | default | effect |
 |---|---|---|---|
 | MARGIN | 0–5 px | 2 | tunnel radius = 4 + MARGIN; the stick travel is re-mapped so the whole tunnel area is reachable |
-| CRASH DELAY | 0.0–2.0 s | 0.3 | time allowed out of the tunnel (0 = instant crash) |
-| SPEED | 1–5 | 3 | starting head speed: 0.8 / 1.1 / 1.5 / 2.0 / 2.6 px per 50 ms |
+| CRASH DELAY | 0.0–5.0 s | 0.5 | time allowed out of the tunnel (0 = instant crash) |
+| SPEED | 1–8 | 4 | starting head speed: 0.8 / 1.1 / 1.5 / 2.0 / 2.6 / 3.2 / 3.9 / 4.7 px per 50 ms |
 | SPEED ACCEL | 0–5 | 2 | speed growth per minute alive: 0 / 45 / 90 / 135 / 180 / 240 % |
-| CURVE ACCEL | 0–5 | 2 | max-curvature growth per minute, same table |
-| TRACK LEN | 20–80, step 5 | 40 | tunnel length in points (one point per 50 ms: 40 = 2 s of tunnel) |
+| CURVE ACCEL | 0–8 | 5 | max-curvature growth per minute: same table, continued 300 / 380 / 480 % |
+| TRACK LEN | 20–120, step 5 | 25 | tunnel length in points (one point per 50 ms: 25 = 1.25 s of tunnel) |
 | HAPTIC | ON/OFF | ON | vibration when out |
 | STICK MODE | 1–4 | radio's mode on EdgeTX 3.0+, else 2 | which sticks drive which half (set it to your radio's stick mode) |
 | RESET BEST | — | — | ENT, then ENT again (`ENT?`) clears the record of the current configuration |
@@ -79,7 +79,7 @@ just means defaults.
 ## BEST and AVG
 
 Records are kept **per difficulty configuration**: MARGIN, CRASH DELAY, SPEED, SPEED ACCEL, CURVE ACCEL and
-TRACK LEN form a key (e.g. `m2d3s3a2c2t40`). Changing any of them shows the BEST of that configuration
+TRACK LEN form a key (e.g. `m2d5s4a2c5t25`). Changing any of them shows the BEST of that configuration
 (`BEST --:--` when it has none yet). HAPTIC and STICK MODE do not split the records. AVG is the average of all
 finished runs with that configuration. Stored in `/SCRIPTS/TOOLS/GATERUSH/gaterush.dat`.
 

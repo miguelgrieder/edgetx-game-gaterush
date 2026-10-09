@@ -21,7 +21,7 @@ Max includes every frame of the scenario (menus included); avg is over the whole
 | 08_resume_countdown | 1976 | 193 | 169 |
 | 09_crashed | 311 | 192 | 124 |
 | 10/11_settings | 40 | 48 | 23 |
-| **perf_worst** (TRACK_LEN 80, MARGIN 5, to 1:35, both quads out every 10 s) | 1991 | **287** | 243 |
+| **perf_worst** (TRACK_LEN 120, MARGIN 5, SPEED 8, CURVE ACCEL 8, to 1:35, both quads out every 10 s) | 1991 | **281** | 241 |
 | soak: 100 games with the bad bot | 26011 | 208 | – |
 
 ## Where the calls go (worst case)
@@ -30,7 +30,7 @@ Max includes every frame of the scenario (menus included); avg is over the whole
   (`track.MAXV`) → ≤ 176 lines
 - rounded ends: 8 lines × 2 ends × 2 tunnels = 32
 - quads: 8 calls each (5 rects + 2 erase diagonals + 1 point), 20 when the crash sprite shows
-- HUD: timer 4 glyphs of 2–5 rects, `L`/`R`, tolerance bar 2, inverted corners 2
+- HUD: timer 4 glyphs of 2–5 rects, `L`/`R`, inverted corners 2 (the tolerance bar was removed)
 - dust 10 points, divider 1, `lcd.clear` 1
 
 Before the vertex cap, the worst case was **459** calls (at 1:30 the head moves 3.5 px/tick, so every

@@ -1,5 +1,10 @@
 # Tuning
 
+> **Update after the first real-radio test:** the defaults are now CRASH DELAY 0.5 s, SPEED 4, CURVE ACCEL 5,
+> TRACK LEN 25 (player's choice), with wider ranges (CRASH DELAY up to 5.0 s, SPEED up to 8, CURVE ACCEL up to 8,
+> TRACK LEN up to 120). With these defaults the average bot survives 101 s on average (71–136 s, 10 runs) and the
+> perfect bot 5 min. The calibration below was done with the original defaults.
+
 All numbers come from `tools/calibrate.lua` (20 runs per profile, 5 min cap, default config:
 MARGIN 2, CRASH_DELAY 0.3, SPEED 3, SPEED_ACCEL 2, CURVE_ACCEL 2, TRACK_LEN 40).
 

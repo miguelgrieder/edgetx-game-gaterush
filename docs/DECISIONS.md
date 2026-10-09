@@ -43,3 +43,9 @@ One line each: what — why — discarded alternative.
 - Level 2 uses the EdgeTX **2.12.4** Companion DLLs driven by Python `ctypes`, not a Docker build of 2.11 — no Docker or compiler on this machine; the DLLs are the same firmware code compiled for PC — Docker build.
 - `dist/` is committed — the goal is a file ready to copy to the SD card — generated only.
 - `luacheck` was not available; `make lint` also checks the built file's bytecode for global writes (`SETTABUP _ENV`), and the mock fails at runtime on any unknown global read.
+
+## After the first real-radio test (user feedback)
+
+- Defaults changed to CRASH DELAY 0.5 s, SPEED 4, CURVE ACCEL 5, TRACK LEN 25; ranges widened to CRASH DELAY 5.0 s, SPEED 8 (3.2 / 3.9 / 4.7 px per tick added), CURVE ACCEL 8 (300 / 380 / 480 %/min added), TRACK LEN 120 — requested by the player. SPEED ACCEL stays 0–5.
+- Tolerance bar under the timer removed — requested; the inverted `L`/`R` corner and the blinking sprite still show the out state.
+- The out-alarm cooldown is no longer reset when the quad comes back in — flicking in and out queued a tone + vibration on every re-entry, the likely cause of the lag; now at most one per 250 ms.

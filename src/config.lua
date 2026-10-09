@@ -5,19 +5,19 @@ M.DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 M.FILE = M.DIR .. "gaterush.cfg"
 
 -- head speed in px per 50 ms tick, by SPEED 1..5
-M.SPEEDS = { 0.8, 1.1, 1.5, 2.0, 2.6 }
+M.SPEEDS = { 0.8, 1.1, 1.5, 2.0, 2.6, 3.2, 3.9, 4.7 }
 -- growth in % per minute alive, by SPEED_ACCEL / CURVE_ACCEL 0..5 (index = value + 1)
-M.ACCELS = { 0, 45, 90, 135, 180, 240 }
+M.ACCELS = { 0, 45, 90, 135, 180, 240, 300, 380, 480 }
 
 -- CRASH_DELAY is stored in tenths of a second so the value stays an integer.
 -- diff = part of the difficulty key
 M.ITEMS = {
   { key = "MARGIN", name = "MARGIN", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 20, def = 3, diff = true },
-  { key = "SPEED", name = "SPEED", lo = 1, hi = 5, def = 3, diff = true },
+  { key = "CRASH_DELAY", name = "CRASH DELAY", lo = 0, hi = 50, def = 5, diff = true },
+  { key = "SPEED", name = "SPEED", lo = 1, hi = 8, def = 4, diff = true },
   { key = "SPEED_ACCEL", name = "SPEED ACCEL", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 5, def = 2, diff = true },
-  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 80, step = 5, def = 40, diff = true },
+  { key = "CURVE_ACCEL", name = "CURVE ACCEL", lo = 0, hi = 8, def = 5, diff = true },
+  { key = "TRACK_LEN", name = "TRACK LEN", lo = 20, hi = 120, step = 5, def = 25, diff = true },
   { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1 },
   { key = "STICK_MODE", name = "STICK MODE", lo = 1, hi = 4, def = 2 },
 }

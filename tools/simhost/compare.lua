@@ -25,7 +25,7 @@ local REFS = {
   { "warning (model name)", { { 5 } } },
   { "title (no best)", { { 10 }, { 1, "enter" }, { 10 } } },
   { "settings p1, CRASH DELAY selected", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" } } },
-  { "settings p1, editing <0.4 S>", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" },
+  { "settings p1, editing <0.6 S>", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" },
     { 1, "enter" }, { 1, "next" } } },
   { "settings p2, TRACK LEN", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 },
     { 1, "next" }, { 1, "enter" }, { 1, "next" }, { 1, "enter" }, { 1, "next" }, { 1, "next" }, { 1, "next" }, { 1, "next" } } },

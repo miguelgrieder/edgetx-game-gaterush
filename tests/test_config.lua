@@ -14,16 +14,18 @@ end
 T.test("defaults and ranges", function()
   local _, c = setup()
   c.defaults()
-  T.eq(c.v.MARGIN, 2) T.eq(c.v.CRASH_DELAY, 3) T.eq(c.v.SPEED, 3) T.eq(c.v.SPEED_ACCEL, 2)
-  T.eq(c.v.CURVE_ACCEL, 2) T.eq(c.v.TRACK_LEN, 40) T.eq(c.v.HAPTIC, 1) T.eq(c.v.STICK_MODE, 2)
+  T.eq(c.v.MARGIN, 2) T.eq(c.v.CRASH_DELAY, 5) T.eq(c.v.SPEED, 4) T.eq(c.v.SPEED_ACCEL, 2)
+  T.eq(c.v.CURVE_ACCEL, 5) T.eq(c.v.TRACK_LEN, 25) T.eq(c.v.HAPTIC, 1) T.eq(c.v.STICK_MODE, 2)
   T.eq(c.radius(), 6)
   local it = c.item("TRACK_LEN")
-  c.change(it, 1) T.eq(c.v.TRACK_LEN, 45)
-  for _ = 1, 20 do c.change(it, 1) end
-  T.eq(c.v.TRACK_LEN, 80)
+  c.change(it, 1) T.eq(c.v.TRACK_LEN, 30)
+  for _ = 1, 30 do c.change(it, 1) end
+  T.eq(c.v.TRACK_LEN, 120)
   for _ = 1, 20 do c.change(c.item("MARGIN"), -1) end
   T.eq(c.v.MARGIN, 0)
-  T.eq(c.label(c.item("CRASH_DELAY")), "0.3 S")
+  T.eq(c.label(c.item("CRASH_DELAY")), "0.5 S")
+  c.v.CRASH_DELAY = 50
+  T.eq(c.label(c.item("CRASH_DELAY")), "5.0 S")
   c.v.CRASH_DELAY = 20
   T.eq(c.label(c.item("CRASH_DELAY")), "2.0 S")
   T.eq(c.label(c.item("MARGIN")), "0 PX")
@@ -35,7 +37,7 @@ T.test("hash changes with every difficulty setting and only with them", function
   local _, c = setup()
   c.defaults()
   local base = c.hash()
-  T.eq(base, "m2d3s3a2c2t40")
+  T.eq(base, "m2d5s4a2c5t25")
   for _, k in ipairs({ "MARGIN", "CRASH_DELAY", "SPEED", "SPEED_ACCEL", "CURVE_ACCEL", "TRACK_LEN" }) do
     c.change(c.item(k), 1)
     T.ok(c.hash() ~= base, k)
@@ -60,7 +62,7 @@ T.test("corrupted file: bad lines ignored, defaults kept", function()
   local h, c = setup()
   writeSd(h, c.FILE, "garbage\nMARGIN=9\nSPEED=4\nTRACK_LEN=33\nHAPTIC=0\n\0\0zz=1\nCRASH_DELAY=-1\n")
   c.load()
-  T.eq(c.v.MARGIN, 2) T.eq(c.v.SPEED, 4) T.eq(c.v.TRACK_LEN, 40) T.eq(c.v.HAPTIC, 0) T.eq(c.v.CRASH_DELAY, 3)
+  T.eq(c.v.MARGIN, 2) T.eq(c.v.SPEED, 4) T.eq(c.v.TRACK_LEN, 25) T.eq(c.v.HAPTIC, 0) T.eq(c.v.CRASH_DELAY, 5)
 end)
 
 T.test("missing GATERUSH folder: io.open nil, save reports failure and the title says NO SAVE", function()

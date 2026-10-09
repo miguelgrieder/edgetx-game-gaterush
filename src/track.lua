@@ -4,7 +4,7 @@ local draw = require("draw")
 local M = {}
 
 M.FADE = 9 -- points behind the tail that fade out (3 per dither age)
-M.CAP = 80 + M.FADE + 1
+M.CAP = 120 + M.FADE + 1 -- longest TRACK_LEN + fade
 M.STEP_PX = 4 -- target spacing of outline vertices
 M.MAXV = 45 -- max outline vertices per tunnel (2 lines each)
 
