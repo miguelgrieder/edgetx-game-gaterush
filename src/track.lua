@@ -144,7 +144,7 @@ local function scan(T, a, b, qx, qy)
 end
 
 -- distance check against the solid part (tail..head)
--- returns d2 and true when the quad is behind the tail point
+-- returns d2 and true when the tail has just passed the quad (behind the tail point, near it)
 function M.near(T, qx, qy, rt2)
   local tail, head = M.tail(T), T.head
   if head == tail then
@@ -162,7 +162,8 @@ function M.near(T, qx, qy, rt2)
     d2, n, t = scan(T, tail, head - 1, qx, qy)
   end
   T.near = n
-  return d2, n == tail and t < 0
+  -- "tail" only while the quad is still within the rounded end it just slipped off
+  return d2, n == tail and t < 0 and d2 <= rt2
 end
 
 return M
