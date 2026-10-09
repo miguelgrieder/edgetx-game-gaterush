@@ -1,5 +1,10 @@
 # Tuning
 
+> **Second update (maneuvers, stop/reverse, chokes):** with the NORMAL preset the average bot (4 frames, 2 px)
+> now crashes after 35.6 s on average (21–58 s, 10 runs); the perfect bot still survives 5 min; the bad bot
+> lasts 7.7 s. The chokes (radius −2) and the hard maneuvers make NORMAL clearly harder than before — use
+> EASY for warm-ups. Numbers below the line are from earlier versions.
+
 > **Update after the first real-radio test:** the defaults are now CRASH DELAY 0.5 s, SPEED 4, CURVE ACCEL 5,
 > TRACK LEN 25 (player's choice), with wider ranges (CRASH DELAY up to 5.0 s, SPEED up to 8, CURVE ACCEL up to 8,
 > TRACK LEN up to 120). With these defaults the average bot survives 101 s on average (71–136 s, 10 runs) and the

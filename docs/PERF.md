@@ -1,5 +1,10 @@
 # Performance
 
+> **Second update:** worst case (TRACK LEN 115, MARGIN 5, SPEED 8, CURVE ACCEL 8, 1:35, quads out) = **280**
+> draw calls/frame (outline cap 38 vertices per tunnel). Soak: 100 games, max 199, memory flat (+0.3 KB).
+> PC heap after loading the script: **154 KB** (was 113 KB) — code grew to 47 KB of source. The game itself
+> allocates nothing per frame (measured with the GC stopped). Tables below are from the first version.
+
 Proxy for the radio CPU: number of `lcd.*` calls per frame, counted by the mock (`tools/run_frames.lua`
 writes `draw_calls_max/avg` to `metrics.json`). Budget: **≤ 300 per frame**. Memory is the Lua heap
 of the PC interpreter after a full GC (64-bit, so roughly 1.5–2× what a 32-bit radio uses).

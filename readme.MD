@@ -4,9 +4,9 @@ A twin-stick FPV warm-up game for **EdgeTX radios with a 128×64 black & white s
 TX12 MK2 / Boxer / Pocket / GX12 / Zorro, Jumper T-Pro / T-Lite / T20 — the `PCB=X7` family).
 
 Each stick flies one quad, seen from above, through its own tunnel. The left stick owns the left half of the
-screen, the right stick the right half. The stick position *is* the quad position. The tunnels keep winding
-and the tail keeps chasing you; leave a tunnel (or let the tail catch you) for too long and you crash.
-Score = time alive.
+screen, the right stick the right half. The stick position *is* the quad position. The tunnels keep winding,
+stop, reverse and narrow into gates while the tail keeps chasing you; leave a tunnel (or let the tail catch you)
+for too long and you crash. Score = time alive + 2 s per gate.
 
 ![all screens](docs/screens/contact_sheet.png)
 
@@ -25,7 +25,7 @@ Score = time alive.
 
 The first launch compiles the script (a `gaterush.luac` appears next to it); give it a second.
 Without the `GATERUSH/` folder the game still works, with default settings and no records: the title then
-shows **NO SAVE** instead of "TWIN-STICK FPV".
+shows **NO SAVE** under the title instead of the mode and preset.
 
 ## RF warning
 
@@ -43,8 +43,8 @@ The radio **keeps transmitting your sticks to the bound model while you play**. 
 | center sticks | — | hold all four axes within ±8 % for 0.5 s (both bars full) → 3-2-1 countdown |
 | play | RTN | pause |
 | pause | ENT | resume: 3 s countdown; the game is frozen but the quads move, so put them back in the tunnels |
-| pause | RTN | give up (goes to CRASHED, not counted as a record) |
-| crashed | ENT | re-arm (CENTER STICKS) · RTN back to the title |
+| pause | RTN | give up (result screen, not counted as a record; in ZEN this is how a session ends) |
+| result | ENT | re-arm (CENTER STICKS) · RTN back to the title |
 | settings | roller / PAGE keys | move; ENT edits the selected value (shown as `<value>`), roller/PAGE change it, ENT or RTN stop editing; RTN leaves and saves |
 
 Throttle sticks usually have no spring: center it by hand on CENTER STICKS.
@@ -55,33 +55,88 @@ Throttle sticks usually have no spring: center it by hand on CENTER STICKS.
 - You are **out** when the quad's **center** leaves the tunnel (more than the tunnel radius from its centerline),
   or when the tail end passes your quad. While out: the quad blinks with the crash sprite, the `L`/`R` corner
   lights up and a 300 Hz beep + short vibration play (at most every 250 ms).
-  Get back in within CRASH DELAY and everything resets; otherwise **CRASHED** (cause: LEFT HAND, RIGHT HAND or TAIL).
+  Get back in within CRASH DELAY and everything resets; otherwise you crash: the props fly off the wreck,
+  then the result screen (cause: LEFT HAND, RIGHT HAND or TAIL).
 - The head speeds up and the maximum curvature grows with time alive (no levels).
+
+### What the tunnels do
+
+The head flies **maneuvers**, picked at random among those unlocked by time alive:
+
+| from | maneuver |
+|---|---|
+| start | straight, curve, S-curve |
+| 0:05 | slalom |
+| 0:10 | zigzag (sharp alternating kinks) |
+| 0:15 | burst (1.8× speed for ~1 s) |
+| 0:20 | hairpin (180° at the tightest radius) |
+| 0:25 | **stop**: the dust gathers around the head (warning), it hovers, then **reverses**, eating its tunnel back toward you, then branches off sideways |
+| 0:30 | spiral (tightening curve) |
+
+Every 3–5 s the tunnel **narrows into a choke** (radius −2 px, never below 3); its middle point is a **gate**,
+marked by two short ticks outside the walls. Fly through it (inside the tunnel) for **+2 s of score** and a
+high beep. The gate count is at the top right.
+
+**TRACK = SCROLL** changes the whole picture: the tunnel streams down the screen like a racing game (the head
+stays near the top, always heading up), so it can never loop around the box.
+
+**COUPLE** links the hands: the right tunnel is the left one mirrored (MIRROR, easy), identical (COPY), or
+mirrored and upside down (INVERT, hard). OFF = two independent tunnels.
+
+### Modes
+
+| mode | rules | record |
+|---|---|---|
+| ENDURO | the classic: survive | time + 2 s per gate |
+| SPRINT | 60 s countdown, you cannot crash; leaving the tunnel only costs accuracy | accuracy % |
+| ZEN | no crash, no end; live accuracy at the top right; RTN → RTN ends the session | none |
+| LEFT / RIGHT | practice one hand: one tunnel, the other stick is ignored (no need to center it) | time + gates |
+
+**Accuracy** = how close to the centerline you stayed (100 % = always on it, 0 % = on the wall or out),
+shown on every result screen.
+
+### Quads
+
+Each hand has its own design (LEFT QUAD / RIGHT QUAD): DISC, RING, XFRM, PODS, THIN, PLUS, GEM, BLADE (from the
+sprite sheet). The props of DISC, XFRM, PODS and BLADE spin, faster as the head speeds up.
 
 ## Settings
 
+4 pages; the roller (or PAGE keys) moves, ENT edits.
+
 | setting | range | default | effect |
 |---|---|---|---|
+| PRESET | EASY / NORMAL / HARD / PRO / CUSTOM | NORMAL | loads the six difficulty values below; editing one of them turns it into CUSTOM (or the preset it matches) |
+| MODE | ENDURO / SPRINT / ZEN / LEFT / RIGHT | ENDURO | see Modes |
+| TRACK | FREE / SCROLL | FREE | tunnel style |
+| COUPLE | OFF / MIRROR / COPY / INVERT | OFF | link the two tunnels (both-hand modes) |
+| SEED | RANDOM / 1–99 | RANDOM | fixed seed = the same tunnels every run (fly it with a friend); RANDOM runs show their seed on the result screen so you can replay them |
 | MARGIN | 0–5 px | 2 | tunnel radius = 4 + MARGIN; the stick travel is re-mapped so the whole tunnel area is reachable |
 | CRASH DELAY | 0.0–5.0 s | 0.5 | time allowed out of the tunnel (0 = instant crash) |
 | SPEED | 1–8 | 4 | starting head speed: 0.8 / 1.1 / 1.5 / 2.0 / 2.6 / 3.2 / 3.9 / 4.7 px per 50 ms |
 | SPEED ACCEL | 0–5 | 2 | speed growth per minute alive: 0 / 45 / 90 / 135 / 180 / 240 % |
 | CURVE ACCEL | 0–8 | 5 | max-curvature growth per minute: same table, continued 300 / 380 / 480 % |
-| TRACK LEN | 20–120, step 5 | 25 | tunnel length in points (one point per 50 ms: 25 = 1.25 s of tunnel) |
+| TRACK LEN | 20–115, step 5 | 25 | tunnel length in points (one point per 50 ms: 25 = 1.25 s of tunnel) |
+| LEFT QUAD / RIGHT QUAD | 8 designs | DISC / XFRM | quad design per hand |
 | HAPTIC | ON/OFF | ON | vibration when out |
 | STICK MODE | 1–4 | radio's mode on EdgeTX 3.0+, else 2 | which sticks drive which half (set it to your radio's stick mode) |
 | RESET BEST | — | — | ENT, then ENT again (`ENT?`) clears the record of the current configuration |
 | EXIT | — | — | save and back to the title |
+
+Presets (MARGIN, CRASH DELAY, SPEED, SPEED ACCEL, CURVE ACCEL, TRACK LEN):
+EASY 3 / 1.0 s / 3 / 1 / 2 / 35 · NORMAL 2 / 0.5 s / 4 / 2 / 5 / 25 · HARD 1 / 0.3 s / 5 / 3 / 6 / 25 ·
+PRO 0 / 0.2 s / 6 / 4 / 8 / 20.
 
 Settings are saved to `/SCRIPTS/TOOLS/GATERUSH/gaterush.cfg` when leaving the menu; a missing or broken file
 just means defaults.
 
 ## BEST and AVG
 
-Records are kept **per difficulty configuration**: MARGIN, CRASH DELAY, SPEED, SPEED ACCEL, CURVE ACCEL and
-TRACK LEN form a key (e.g. `m2d5s4a2c5t25`). Changing any of them shows the BEST of that configuration
-(`BEST --:--` when it has none yet). HAPTIC and STICK MODE do not split the records. AVG is the average of all
-finished runs with that configuration. Stored in `/SCRIPTS/TOOLS/GATERUSH/gaterush.dat`.
+Records are kept **per configuration**: MARGIN, CRASH DELAY, SPEED, SPEED ACCEL, CURVE ACCEL and TRACK LEN form a
+key (e.g. `m2d5s4a2c5t25`), plus the MODE, SCROLL and COUPLE when they are not the default
+(`m2d5s4a2c5t25M2SC2`). Changing any of them shows the BEST of that configuration (`BEST --:--` when it has none
+yet). Quads, seed, HAPTIC and STICK MODE do not split the records. AVG is the average of all finished runs with
+that configuration. Stored in `/SCRIPTS/TOOLS/GATERUSH/gaterush.dat`.
 
 ## Development
 
@@ -94,7 +149,7 @@ and Python 3 with Pillow for PNG output.
 | command | what |
 |---|---|
 | `make build` | build `dist/SCRIPTS/TOOLS/gaterush.lua` and syntax-check it |
-| `make test` | build + all tests (`tests/run_all.lua`): draw, config, stats, input, track, rules, 12 screen goldens (src and dist) |
+| `make test` | build + all tests (`tests/run_all.lua`): draw, config, stats, input, track, rules, 21 screen goldens (src, and dist where no bot is needed) |
 | `make frames` | run every `inputs/*.lua` scenario (≥ 600 frames) on the mock, PBM frames + `metrics.json` in `out/` |
 | `make soak` | the bad bot plays 100 games in a row: no errors, ≤ 300 draw calls, flat memory |
 | `make calibrate` | bot survival times (see `docs/TUNING.md`) |

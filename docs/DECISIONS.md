@@ -49,3 +49,20 @@ One line each: what — why — discarded alternative.
 - Defaults changed to CRASH DELAY 0.5 s, SPEED 4, CURVE ACCEL 5, TRACK LEN 25; ranges widened to CRASH DELAY 5.0 s, SPEED 8 (3.2 / 3.9 / 4.7 px per tick added), CURVE ACCEL 8 (300 / 380 / 480 %/min added), TRACK LEN 120 — requested by the player. SPEED ACCEL stays 0–5.
 - Tolerance bar under the timer removed — requested; the inverted `L`/`R` corner and the blinking sprite still show the out state.
 - The out-alarm cooldown is no longer reset when the quad comes back in — flicking in and out queued a tone + vibration on every re-entry, the likely cause of the lag; now at most one per 250 ms.
+
+## Second round: new tunnels, quads, modes (user request)
+
+- The head now flies **maneuvers** (straight, curve, S, slalom, zigzag, burst, hairpin, stop/reverse, spiral) unlocked by time alive, instead of a pure random walk — readable track sections and less looping — keep tuning the random walk.
+- **Stop/reverse** pops points off the head (ring buffer) while the tail waits, never below 8 points, then branches off ±90–135° — the tunnel physically retracts toward the player — a "ghost" reverse that only animates.
+- The tail is now an explicit index (`T.tail`) — needed once the head can move backwards.
+- **Chokes** store a radius per point; the out test uses the radius interpolated at the projected point and the nearest segment by distance — taking the widest nearby segment let the round ends of the wide parts cover the whole choke.
+- **Gates = chokes**: the middle point of each choke; passing it (nearest segment index ≥ gate, while inside) gives +2 s in ENDURO — one mechanic for "narrowing" and "gates" — separate gate objects.
+- **SCROLL** keeps world y per point and a camera that only moves up; the head is steered inside a ±57° cone around "up" — the simplest scroller that reuses the same ring, distance and outline code — a separate generator.
+- **COUPLE** copies the newest left point into the right ring each tick (mirror / copy / invert), gates included — the right side then needs no generator of its own. INVERT falls back to MIRROR in SCROLL.
+- **SEED**: RANDOM runs still pick a seed 1–99 and show it on the result screen, so any run can be replayed — seeds only when fixed. Seed is not part of the record key.
+- **Modes**: SPRINT records accuracy %, ZEN records nothing, LEFT/RIGHT ignore the other stick (including on CENTER STICKS). Mode, SCROLL and COUPLE join the record key only when not default, so existing ENDURO records keep their key.
+- **Presets** are a view on the six difficulty values (`config.sync` picks the matching preset or CUSTOM) — no separate "preset" state that can disagree with the values.
+- **Skins** are 9x9 bitmaps from the sprite sheet turned into rectangles; only the two skins in use are built (`draw.prepare`) to save ~15 KB of heap; the disc under each skin is erased first so tunnel lines don't show through. Prop spin = the full 2x2 corner props shown as their outer diagonal on frame 2 (DISC swaps its erased X for a +).
+- **Wreck animation**: 0.6 s where the four props fly away from the crash sprite before the 2-frame flash and the result screen.
+- Ring size is exactly 128 (power of two): Lua sizes array parts in powers of two, so 130 would have cost 256 slots per array; TRACK LEN max is 115 for that reason (was 120).
+- Outline vertex cap lowered to 38 per tunnel to pay for the bigger quads (skins cost up to 24 calls each), gate posts and HUD numbers.
