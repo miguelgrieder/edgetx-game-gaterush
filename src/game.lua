@@ -79,7 +79,8 @@ function M.tick()
       M.outN[side] = 0
     end
   end
-  if anyOut then fx.alarm() else fx.cool = 0 end
+  -- the cooldown keeps running after coming back in, so flicking in and out cannot flood audio/haptic
+  if anyOut then fx.alarm() end
 end
 
 function M.ms() return M.t * 50 end
@@ -124,12 +125,6 @@ function M.drawHud()
   timer()
   lcd.drawText(2, 56, "L", 0)
   lcd.drawText(121, 56, "R", 0)
-  local n = M.outN[1] > M.outN[2] and M.outN[1] or M.outN[2]
-  if n > 0 and M.limit > 1 then
-    lcd.drawRectangle(2, 8, 30, 3, FORCE)
-    local w = floor(30 * (M.limit - n) / M.limit + 0.5)
-    if w > 0 then lcd.drawFilledRectangle(2, 8, w, 3, FORCE) end
-  end
   if M.outN[1] > 0 then lcd.drawFilledRectangle(0, 54, 9, 10) end
   if M.outN[2] > 0 then lcd.drawFilledRectangle(119, 54, 9, 10) end
 end
