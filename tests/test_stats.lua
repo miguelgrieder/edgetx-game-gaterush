@@ -1,0 +1,62 @@
+local T = dofile("tests/t.lua")
+
+local function setup(o)
+  local h = T.H.new(o or { sd = "t_stats" })
+  h.stats.rec = {}
+  return h, h.stats
+end
+
+T.test("best, count and average per key", function()
+  local _, s = setup()
+  T.eq(s.best("k"), nil)
+  T.eq(s.add("k", 30000), true)
+  T.eq(s.add("k", 20000), false)
+  T.eq(s.add("k", 40000), true)
+  T.eq(s.best("k"), 40000)
+  T.eq(s.avg("k"), 30000)
+  T.eq(s.rec.k[2], 3)
+  T.eq(s.best("other"), nil)
+end)
+
+T.test("m:ss formatting", function()
+  local _, s = setup()
+  T.eq(s.fmt(nil), "--:--")
+  T.eq(s.fmt(0), "0:00")
+  T.eq(s.fmt(81000), "1:21")
+  T.eq(s.fmt(59999), "0:59")
+  T.eq(s.fmt(600000), "10:00")
+end)
+
+T.test("save/load round trip and reset", function()
+  local _, s = setup()
+  s.add("m2d3s3a2c2t40", 81000)
+  s.add("m0d0s5a5c5t80", 5000)
+  T.eq(s.save(), true)
+  s.rec = {}
+  s.load()
+  T.eq(s.best("m2d3s3a2c2t40"), 81000)
+  T.eq(s.best("m0d0s5a5c5t80"), 5000)
+  s.reset("m0d0s5a5c5t80")
+  T.eq(s.best("m0d0s5a5c5t80"), nil)
+end)
+
+T.test("long data files load across read chunks; bad lines ignored", function()
+  local h, s = setup()
+  local f = h.S.realio.open(h.S.sdroot .. s.FILE, "wb")
+  for i = 1, 60 do f:write("key" .. i .. " " .. (i * 1000) .. " 2 500\n") end
+  f:write("broken line here\n-- 5 5\nlast 7000 1 7000\n")
+  f:close()
+  s.load()
+  T.eq(s.best("key1"), 1000)
+  T.eq(s.best("key60"), 60000)
+  T.eq(s.best("last"), 7000)
+  T.eq(s.best("broken"), nil)
+end)
+
+T.test("no save folder: save fails quietly, game keeps working", function()
+  local _, s = setup({ sd = "t_stats_nosave", noSaveFolder = true })
+  s.add("k", 1000)
+  T.eq(s.save(), false)
+  s.load()
+  T.eq(s.best("k"), nil)
+end)
