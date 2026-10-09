@@ -1,5 +1,8 @@
 # Performance
 
+> **Third update (split into files):** compile allocations per file ≤ 69 KB (single file was 271 KB);
+> resident heap: menus 64 KB, play 129 KB; worst case 279 draw calls; 100-game soak flat. See DECISIONS.
+
 > **Second update:** worst case (TRACK LEN 115, MARGIN 5, SPEED 8, CURVE ACCEL 8, 1:35, quads out) = **280**
 > draw calls/frame (outline cap 38 vertices per tunnel). Soak: 100 games, max 199, memory flat (+0.3 KB).
 > PC heap after loading the script: **154 KB** (was 113 KB) — code grew to 47 KB of source. The game itself

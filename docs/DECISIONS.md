@@ -66,3 +66,13 @@ One line each: what — why — discarded alternative.
 - **Wreck animation**: 0.6 s where the four props fly away from the crash sprite before the 2-frame flash and the result screen.
 - Ring size is exactly 128 (power of two): Lua sizes array parts in powers of two, so 130 would have cost 256 slots per array; TRACK LEN max is 115 for that reason (was 120).
 - Outline vertex cap lowered to 38 per tunnel to pay for the bigger quads (skins cost up to 24 calls each), gate posts and HUD numbers.
+
+## Third round: "not enough memory" on a GX12
+
+- The single 47 KB file failed while the radio **compiled** it (the 32 KB version had worked). Measured on the PC with the GC stopped: compiling the single file allocated 271 KB, the 32 KB version 199 KB.
+- Split into a small launcher + 8 modules in `/SCRIPTS/TOOLS/GATERUSH/`, loaded with `loadScript` (EdgeTX compiles and caches each as `.luac` on its own). Largest compile now 69 KB (track) — breaks the prompt's "single file, no loadScript" rule, accepted by the user.
+- Two groups never in memory together: menus (menus + stats) and play (game + track + draw + fx); the other group is dropped and `collectgarbage()` runs on every switch. Resident heap (PC): menus 64 KB (was 125), play 129 KB (old 32 KB version: 126 KB); peak without forced GC 141 KB (was 258).
+- The result screen gets plain values from the play group (`game.result`) before the play group is dropped; records are written by the menus group.
+- Tunnel points store only x/y: directions come from neighbouring points and choke radii from a short list of choke centers (`track.rad`) — 3 arrays × 128 × 2 tunnels less.
+- Preset logic, labels and value stepping moved from `config` to `menus` (not needed during a run).
+- The title icon moved from `draw` to `menus`; countdown/pause overlays moved into `game`.

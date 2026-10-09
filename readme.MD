@@ -12,20 +12,23 @@ for too long and you crash. Score = time alive + 2 s per gate.
 
 ## Install
 
-1. Copy `dist/SCRIPTS/TOOLS/gaterush.lua` **and the folder** `dist/SCRIPTS/TOOLS/GATERUSH/` to `/SCRIPTS/TOOLS/`
-   on the radio's SD card:
+1. Copy `dist/SCRIPTS/TOOLS/gaterush.lua` **and the whole folder** `dist/SCRIPTS/TOOLS/GATERUSH/` to
+   `/SCRIPTS/TOOLS/` on the radio's SD card:
 
    ```
    SD card
    └── SCRIPTS/TOOLS/
-       ├── gaterush.lua
-       └── GATERUSH/          <- saves (settings and best times) go here
+       ├── gaterush.lua       <- the launcher shown in TOOLS
+       └── GATERUSH/          <- the game itself (config, input, menus, stats, game, track, draw, fx .lua)
+                                 plus your saves (gaterush.cfg, gaterush.dat)
    ```
 2. On the radio: **SYS** → **TOOLS** → **GateRush**.
 
-The first launch compiles the script (a `gaterush.luac` appears next to it); give it a second.
-Without the `GATERUSH/` folder the game still works, with default settings and no records: the title then
-shows **NO SAVE** under the title instead of the mode and preset.
+The game is split into small files that the radio compiles one by one (each gets a `.luac` next to it the
+first time: the first launch and the first run take a moment). Only the menu files or the play files are in
+memory at a time. When updating, copy all files again; the radio recompiles the ones that changed.
+The `GATERUSH/` folder is required (it holds the game); if the saves can't be written the title shows
+**NO SAVE** instead of the mode and preset.
 
 ## RF warning
 
@@ -140,8 +143,11 @@ that configuration. Stored in `/SCRIPTS/TOOLS/GATERUSH/gaterush.dat`.
 
 ## Development
 
-Sources live in `src/` (one module per file, `require` in development); `tools/build.lua` inlines them into the
-single `dist/SCRIPTS/TOOLS/gaterush.lua`. `dist/` is laid out like an SD card.
+Sources live in `src/`, one module per file. `src/main.lua` is the launcher (`dist/SCRIPTS/TOOLS/gaterush.lua`)
+and loads the others from `/SCRIPTS/TOOLS/GATERUSH/` with `loadScript` (a module starts with `local use = ...`
+and gets its dependencies with `use("name")`). Two groups are swapped in and out: menus (`menus`, `stats`) and
+play (`game`, `track`, `draw`, `fx`); `config`, `input` stay loaded. `tools/build.lua` copies them into `dist/`,
+which is laid out like an SD card. The mock implements `loadScript` (from `src/` or `dist/`).
 
 Needs Lua 5.2 (`lua5.2`, `luac5.2`; on Windows the LuaBinaries `lua52.exe` works: `make LUA=lua52 LUAC=luac52`)
 and Python 3 with Pillow for PNG output.
