@@ -33,7 +33,7 @@ function B.new(o)
     local tail = track.tail(T)
     if n < tail then n = tail end
     local i = (n - 1) % track.CAP + 1
-    return T.x[i], T.y[i]
+    return T.x[i], T.y[i] - (T.cam or 0) -- screen y in scroll mode
   end
   local function hand(side, tx, ty, input)
     local p = pos[side]
