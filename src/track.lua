@@ -14,7 +14,8 @@ M.MAXV = 38 -- max outline vertices per tunnel (2 lines each)
 M.MINLEN = 8 -- a reversing head never eats the tunnel below this many points
 
 local cos, sin, floor, pi, sqrt = math.cos, math.sin, math.floor, math.pi, math.sqrt
-local line, PAT = draw.line, draw.PAT
+local PAT = draw.PAT
+local drawLine, FORCE, W, H = lcd.drawLine, FORCE, LCD_W, LCD_H
 -- (in the drawing loops v - v % 1 rounds without a math.floor call: C calls are what costs on the radio)
 
 -- maneuvers, in unlock order; UNLOCK = seconds alive before it can be picked
@@ -235,6 +236,19 @@ local function age(n, tail)
   return 1 + floor((tail - 1 - n) / 3)
 end
 
+-- radius at point m when m only grows (the scans): the chokes C are in order, so k (the first choke that
+-- can still reach m) only moves forward. Returns the radius and the new k (the same radius as rad())
+local function radAt(C, k, rt, m)
+  while C[k] and C[k] + 2 < m do k = k + 1 end
+  local cc = C[k]
+  if cc and m >= cc - 2 then
+    local cut = M.CHOKE[m - cc + 3]
+    if cut > rt - 3 then cut = rt - 3 end
+    return rt - cut, k
+  end
+  return rt, k
+end
+
 -- rounded end at point n facing (c, s)
 local function cap(T, n, xo, c, s, pat)
   local i = idx(n)
@@ -244,7 +258,9 @@ local function cap(T, n, xo, c, s, pat)
     local nx = x + rt * (c * CA[a] - s * SA[a]) + 0.5
     local ny = y + rt * (s * CA[a] + c * SA[a]) + 0.5
     nx, ny = nx - nx % 1, ny - ny % 1
-    if px then line(px, py, nx, ny, pat) end
+    if px and px >= 0 and py >= 0 and nx >= 0 and ny >= 0 and px < W and nx < W and py < H and ny < H then
+      drawLine(px, py, nx, ny, pat, FORCE) -- draw.line() inline
+    end
     px, py = nx, ny
   end
 end
@@ -284,9 +300,14 @@ function M.draw(T, xo, v)
       local nlx, nly, nrx, nry = x + ox + 0.5, y + oy + 0.5, x - ox + 0.5, y - oy + 0.5
       nlx, nly, nrx, nry = nlx - nlx % 1, nly - nly % 1, nrx - nrx % 1, nry - nry % 1
       if lx then
+        -- draw.line() inline: never an off-screen or negative endpoint (the firmware drops those lines)
         local pat = PAT[pa]
-        line(lx, ly, nlx, nly, pat)
-        line(rx, ry, nrx, nry, pat)
+        if lx >= 0 and ly >= 0 and nlx >= 0 and nly >= 0 and lx < W and nlx < W and ly < H and nly < H then
+          drawLine(lx, ly, nlx, nly, pat, FORCE)
+        end
+        if rx >= 0 and ry >= 0 and nrx >= 0 and nry >= 0 and rx < W and nrx < W and ry < H and nry < H then
+          drawLine(rx, ry, nrx, nry, pat, FORCE)
+        end
       end
       local ag = 0
       if n < tail then
@@ -322,13 +343,15 @@ end
 -- the next one's start: its point and radius are carried over instead of read and worked out again.
 local function scan(T, a, b, qx, qy)
   local best, bn, bt, br = 1e9, a, 0, 0
-  local X, Y, CAP = T.x, T.y, M.CAP
+  local X, Y, CAP, C, rt = T.x, T.y, M.CAP, T.chokes, T.rt
   local j = (a - 1) % CAP + 1
-  local bx, by, rb = X[j], Y[j], rad(T, a)
+  local rb, k = radAt(C, 1, rt, a)
+  local bx, by = X[j], Y[j]
   for n = a, b do
     local ax, ay, ra = bx, by, rb
     j = n % CAP + 1 -- idx(n + 1)
-    bx, by, rb = X[j], Y[j], rad(T, n + 1)
+    bx, by = X[j], Y[j]
+    rb, k = radAt(C, k, rt, n + 1)
     local dx, dy = bx - ax, by - ay
     local l2 = dx * dx + dy * dy
     local t = 0
