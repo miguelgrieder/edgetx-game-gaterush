@@ -23,14 +23,23 @@ end
 -- 5 specks 1..5 px beyond the head cap, re-scattered every frame; a hovering head pulls
 -- 8 specks in tight (the warning before it stops and reverses)
 local seed = 1
+-- the spread angle takes 19 values (-0.9..0.9 rad, -3..3 when gathering): their cos/sin worked out once
+-- (math calls are what costs on the radio; v - v % 1 rounds without one)
+local COS, SIN, GCOS, GSIN = {}, {}, {}, {}
+for k = 0, 18 do
+  COS[k], SIN[k] = math.cos((k - 9) / 10), math.sin((k - 9) / 10)
+  GCOS[k], GSIN[k] = math.cos((k - 9) / 3), math.sin((k - 9) / 3)
+end
 function M.dust(x, y, c, s, rt, xo, xmax, gather)
+  local CO, SI = gather and GCOS or COS, gather and GSIN or SIN
   for _ = 1, gather and 8 or 5 do
     seed = (seed * 16807) % 2147483647
     local d = rt + 1 + seed % (gather and 2 or 5)
-    local a = (seed % 19 - 9) / (gather and 3 or 10) -- spread: -0.9..0.9 rad, -3..3 when gathering
-    local ca, sa = math.cos(a), math.sin(a)
-    local px = math.floor(x + (c * ca - s * sa) * d + 0.5)
-    local py = math.floor(y + (s * ca + c * sa) * d + 0.5)
+    local k = seed % 19
+    local ca, sa = CO[k], SI[k]
+    local px = x + (c * ca - s * sa) * d + 0.5
+    local py = y + (s * ca + c * sa) * d + 0.5
+    px, py = px - px % 1, py - py % 1
     if px >= 0 and px <= xmax and py >= 0 and py < LCD_H then lcd.drawPoint(px + xo, py, FORCE) end
   end
 end
