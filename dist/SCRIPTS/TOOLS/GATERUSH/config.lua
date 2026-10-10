@@ -1,7 +1,7 @@
 -- Settings: ranges, defaults, tuning tables, .cfg persistence, difficulty key.
 local M = {}
 
-M.VERSION = "v0.1.1" -- shown on the title screen
+M.VERSION = "v0.1.2" -- shown on the title screen
 M.DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 M.FILE = M.DIR .. "gaterush.cfg"
 

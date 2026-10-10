@@ -43,6 +43,7 @@ local function use(name)
   return m
 end
 
+if LCD_W > 212 then use("color") end -- a colour screen: scale the 128x64 game up (before anything draws)
 local config, input = use("config"), use("input")
 
 -- The first start of a new build compiles the modules listed in build.txt, one per frame, before anything

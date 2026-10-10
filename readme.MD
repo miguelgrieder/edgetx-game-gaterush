@@ -1,4 +1,4 @@
-# GateRush (v0.1.1)
+# GateRush (v0.1.2)
 
 A twin-stick FPV warm-up game for **EdgeTX radios with a 128×64 black & white screen** (Radiomaster TX12 /
 TX12 MK2 / Boxer / Pocket / GX12 / Zorro, Jumper T-Pro / T-Lite / T20 — the `PCB=X7` family).
@@ -210,6 +210,7 @@ dist/       SD card image (generated, committed so it can be copied directly)
 | Boxer | (same target) | ✓ 300 frames, no errors | not yet |
 | Pocket | (same target) | ✓ 300 frames, no errors | not yet |
 | GX12 | (same target) | ✓ 300 frames, no errors | not yet |
+| colour screens (TX15) | (scaling self-test) | – | drawn 3x and centred in black on white by `src/color.lua` (being tuned) |
 
 ## License
 

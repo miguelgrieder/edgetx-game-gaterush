@@ -1,7 +1,7 @@
 -- Builds the SD card image in dist/: src/main.lua becomes SCRIPTS/TOOLS/gaterush.lua (with the TOOLS
 -- header) and every other module goes to SCRIPTS/TOOLS/GATERUSH/<name>.lua, loaded at runtime with
 -- loadScript. Each file compiles on its own on the radio.
-local MODULES = { "config", "input", "stats", "menus", "draw", "fx", "track", "game" }
+local MODULES = { "color", "config", "input", "stats", "menus", "draw", "fx", "track", "game" }
 local OUT = "dist/SCRIPTS/TOOLS/"
 
 local function read(path)
