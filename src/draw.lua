@@ -153,12 +153,15 @@ end
 -- line pattern by tail age: solid, 50 %, 25 %, 12 %
 M.PAT = { [0] = SOLID, 0x55, 0x11, 0x01 }
 
--- drawLine that never sends an off-screen or negative endpoint (the firmware drops those lines)
+-- drawLine that never sends an off-screen or negative endpoint (the firmware drops those lines). Runs for
+-- every outline segment: the screen size and the lcd function are looked up once (globals cost a table
+-- lookup each time)
+local W, H, drawLine, FORCE = LCD_W, LCD_H, lcd.drawLine, FORCE
 function M.line(x1, y1, x2, y2, pat)
-  if x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0 or x1 >= LCD_W or x2 >= LCD_W or y1 >= LCD_H or y2 >= LCD_H then
+  if x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0 or x1 >= W or x2 >= W or y1 >= H or y2 >= H then
     return false
   end
-  lcd.drawLine(x1, y1, x2, y2, pat, FORCE)
+  drawLine(x1, y1, x2, y2, pat, FORCE)
   return true
 end
 

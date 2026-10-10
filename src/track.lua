@@ -14,6 +14,8 @@ M.MAXV = 38 -- max outline vertices per tunnel (2 lines each)
 M.MINLEN = 8 -- a reversing head never eats the tunnel below this many points
 
 local cos, sin, floor, pi, sqrt = math.cos, math.sin, math.floor, math.pi, math.sqrt
+local line, PAT = draw.line, draw.PAT
+-- (in the drawing loops v - v % 1 rounds without a math.floor call: C calls are what costs on the radio)
 
 -- maneuvers, in unlock order; UNLOCK = seconds alive before it can be picked
 local STRAIGHT, CURVE, ESS, SLALOM, ZIGZAG, BURST, HAIRPIN, STOP, SPIRAL = 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -239,9 +241,10 @@ local function cap(T, n, xo, c, s, pat)
   local x, y, rt = T.x[i] + xo, T.y[i] - T.cam, rad(T, n)
   local px, py
   for a = 0, 8 do
-    local nx = floor(x + rt * (c * CA[a] - s * SA[a]) + 0.5)
-    local ny = floor(y + rt * (s * CA[a] + c * SA[a]) + 0.5)
-    if px then draw.line(px, py, nx, ny, pat) end
+    local nx = x + rt * (c * CA[a] - s * SA[a]) + 0.5
+    local ny = y + rt * (s * CA[a] + c * SA[a]) + 0.5
+    nx, ny = nx - nx % 1, ny - ny % 1
+    if px then line(px, py, nx, ny, pat) end
     px, py = nx, ny
   end
 end
@@ -256,22 +259,41 @@ function M.draw(T, xo, v)
   local need = math.ceil((head - first + 1) / M.MAXV)
   if stride < need then stride = need end
   if stride < 1 then stride = 1 end
-  local X, Y = T.x, T.y
+  local X, Y, CAP = T.x, T.y, M.CAP
+  -- rad(), idx(), dir() and age() inline: this runs for every point of both tunnels every frame
+  local C, rt, CH = T.chokes, T.rt, M.CHOKE
+  local ck = 1 -- the first choke that can still reach point n (chokes are kept in order)
   local lx, ly, rx, ry, pa, pr
   for n = first, head do
-    local r = rad(T, n)
+    while C[ck] and C[ck] + 2 < n do ck = ck + 1 end
+    local r, cc = rt, C[ck]
+    if cc and n >= cc - 2 then
+      local cut = CH[n - cc + 3]
+      if cut > rt - 3 then cut = rt - 3 end
+      r = rt - cut
+    end
     if n == first or n == head or n % stride == 0 or r ~= pr then -- int
-      local i = idx(n)
-      local c, s = dir(T, n, first, head)
+      local i = (n - 1) % CAP + 1
+      local p, q = n > first and n - 1 or n, n < head and n + 1 or n
+      p, q = (p - 1) % CAP + 1, (q - 1) % CAP + 1
+      local dx, dy = X[q] - X[p], Y[q] - Y[p]
+      local l = sqrt(dx * dx + dy * dy)
+      local c, s
+      if l < 1e-6 then c, s = cos(T.h), sin(T.h) else c, s = dx / l, dy / l end
       local x, y, ox, oy = X[i] + xo, Y[i] - yo, -s * r, c * r
-      local nlx, nly = floor(x + ox + 0.5), floor(y + oy + 0.5)
-      local nrx, nry = floor(x - ox + 0.5), floor(y - oy + 0.5)
+      local nlx, nly, nrx, nry = x + ox + 0.5, y + oy + 0.5, x - ox + 0.5, y - oy + 0.5
+      nlx, nly, nrx, nry = nlx - nlx % 1, nly - nly % 1, nrx - nrx % 1, nry - nry % 1
       if lx then
-        local pat = draw.PAT[pa]
-        draw.line(lx, ly, nlx, nly, pat)
-        draw.line(rx, ry, nrx, nry, pat)
+        local pat = PAT[pa]
+        line(lx, ly, nlx, nly, pat)
+        line(rx, ry, nrx, nry, pat)
       end
-      lx, ly, rx, ry, pa = nlx, nly, nrx, nry, age(n, tail)
+      local ag = 0
+      if n < tail then
+        ag = (tail - 1 - n) / 3
+        ag = 1 + (ag - ag % 1)
+      end
+      lx, ly, rx, ry, pa = nlx, nly, nrx, nry, ag
     end
     pr = r
   end
@@ -295,26 +317,26 @@ function M.draw(T, xo, v)
   end
 end
 
--- squared distance from (qx, qy) to segment n -> n+1; returns d2, unclamped projection t and the
--- tunnel radius at the projected point (chokes narrow smoothly between points)
-local function seg(T, n, qx, qy)
-  local i, j = idx(n), idx(n + 1)
-  local ax, ay = T.x[i], T.y[i]
-  local dx, dy = T.x[j] - ax, T.y[j] - ay
-  local l2 = dx * dx + dy * dy
-  local t = 0
-  if l2 > 0 then t = ((qx - ax) * dx + (qy - ay) * dy) / l2 end
-  local tc = t < 0 and 0 or (t > 1 and 1 or t)
-  local ex, ey = ax + dx * tc - qx, ay + dy * tc - qy
-  local ra = rad(T, n)
-  return ex * ex + ey * ey, t, ra + (rad(T, n + 1) - ra) * tc
-end
-
+-- closest of the segments n -> n+1 (n = a..b) to (qx, qy): squared distance, segment, unclamped projection t
+-- and the tunnel radius at the projected point (chokes narrow smoothly between points). A segment's end is
+-- the next one's start: its point and radius are carried over instead of read and worked out again.
 local function scan(T, a, b, qx, qy)
   local best, bn, bt, br = 1e9, a, 0, 0
+  local X, Y, CAP = T.x, T.y, M.CAP
+  local j = (a - 1) % CAP + 1
+  local bx, by, rb = X[j], Y[j], rad(T, a)
   for n = a, b do
-    local d2, t, r = seg(T, n, qx, qy)
-    if d2 < best then best, bn, bt, br = d2, n, t, r end
+    local ax, ay, ra = bx, by, rb
+    j = n % CAP + 1 -- idx(n + 1)
+    bx, by, rb = X[j], Y[j], rad(T, n + 1)
+    local dx, dy = bx - ax, by - ay
+    local l2 = dx * dx + dy * dy
+    local t = 0
+    if l2 > 0 then t = ((qx - ax) * dx + (qy - ay) * dy) / l2 end
+    local tc = t < 0 and 0 or (t > 1 and 1 or t)
+    local ex, ey = ax + dx * tc - qx, ay + dy * tc - qy
+    local d2 = ex * ex + ey * ey
+    if d2 < best then best, bn, bt, br = d2, n, t, ra + (rb - ra) * tc end
   end
   return best, bn, bt, br
 end
