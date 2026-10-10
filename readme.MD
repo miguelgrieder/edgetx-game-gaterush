@@ -1,4 +1,4 @@
-# GateRush (v0.1.0)
+# GateRush (v0.1.1)
 
 A twin-stick FPV warm-up game for **EdgeTX radios with a 128×64 black & white screen** (Radiomaster TX12 /
 TX12 MK2 / Boxer / Pocket / GX12 / Zorro, Jumper T-Pro / T-Lite / T20 — the `PCB=X7` family).
@@ -29,8 +29,9 @@ first time: the first launch and the first run take a moment). Only the menu fil
 memory at a time. When updating, copy all files again. The radio keeps using a `.luac` that is newer than its
 `.lua`, so the game recompiles each of its modules once per new build by itself (`GATERUSH/build.txt` holds the
 build's stamp, `compiled.txt` what was recompiled); only `gaterush.luac` next to `gaterush.lua` is EdgeTX's own,
-so **delete `SCRIPTS/TOOLS/gaterush.luac`** when updating. If the radio says "not enough memory" the first time it
-compiles, open the game again: the files already compiled load from their `.luac`, which needs much less memory.
+so **delete `SCRIPTS/TOOLS/gaterush.luac`** when updating. The first start of a new version shows
+PREPARING 1/8 while it compiles each file on its own, before anything else is loaded (compiling is the memory
+peak); later starts load the compiled `.luac` files, which needs much less memory.
 The version is shown at the top right of the title.
 The `GATERUSH/` folder is required (it holds the game); if the saves can't be written the title shows
 **NO SAVE** instead of the mode and preset.

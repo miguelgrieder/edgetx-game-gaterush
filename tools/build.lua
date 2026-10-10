@@ -35,7 +35,8 @@ end
 local h, text = 0, table.concat(all)
 for i = 1, #text do h = (h * 31 + text:byte(i)) % 4294967296 end
 local stamp = string.format("%s-%08x", read("src/config.lua"):match('M%.VERSION = "([^"]+)"'), h)
+-- then the modules, so a new build can compile them all on its first start (see main.lua)
 local f = assert(io.open(OUT .. "GATERUSH/build.txt", "wb"))
-f:write(stamp .. "\n")
+f:write(stamp .. "\n" .. table.concat(MODULES, "\n") .. "\n")
 f:close()
 print("stamp " .. stamp)
