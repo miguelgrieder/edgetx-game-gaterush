@@ -16,7 +16,7 @@ local mem10, total = nil, 0
 while crashes < runs do
   f = f + 1
   h.step(bot(f, 0, ctx))
-  h.S.tones, h.S.haptics = {}, {} -- the mock's own logs are not game memory
+  h.S.tones, h.S.haptics, h.S.loadModes = {}, {}, {} -- the mock's own logs are not game memory
   if h.lastCalls > maxCalls then maxCalls = h.lastCalls end
   local c = h.game.crashed ~= nil
   if c and not wasCrashed then
