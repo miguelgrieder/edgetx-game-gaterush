@@ -58,7 +58,7 @@ function M.install(opts)
   local S = {
     fb = FB.new(), clock = opts.clock or 0, inputs = { ail = 0, ele = 0, thr = 0, rud = 0 },
     tones = {}, haptics = {}, calls = 0, maxCalls = 0, sdroot = opts.sdroot, killed = {},
-    lastRight = 0, lastLeft = 0, modelName = opts.modelName, modules = {}, scriptDir = opts.scriptDir,
+    lastRight = 0, lastLeft = 0, modelName = opts.modelName, modules = {}, loadModes = {}, scriptDir = opts.scriptDir,
   }
   local fb = S.fb
 
@@ -280,8 +280,10 @@ function M.install(opts)
     getUsage = function() return 0 end,
     killEvents = function(e) S.killed[#S.killed + 1] = e end,
     getStickMode = opts.stickMode and function() return opts.stickMode end or nil,
-    -- loadScript(path): "/SCRIPTS/TOOLS/GATERUSH/x.lua" is read from S.scriptDir (src/ or dist/...)
-    loadScript = function(path)
+    -- loadScript(path, mode): "/SCRIPTS/TOOLS/GATERUSH/x.lua" is read from S.scriptDir (src/ or dist/...);
+    -- modes are recorded in S.loadModes
+    loadScript = function(path, mode)
+      S.loadModes[#S.loadModes + 1] = tostring(string.match(path, "([%w_]+)%.lua$")) .. ":" .. tostring(mode)
       local dir = S.scriptDir or S.sdroot .. "/SCRIPTS/TOOLS/GATERUSH/"
       local name = string.match(path, "^/SCRIPTS/TOOLS/GATERUSH/([%w_]+)%.lua$")
       if not name then return nil, "loadScript(\"" .. tostring(path) .. "\") error: File not found" end

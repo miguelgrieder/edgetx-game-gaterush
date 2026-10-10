@@ -1,8 +1,8 @@
--- shared helpers for scenarios: ENTER through warning + title, then centered sticks
+-- shared helpers for scenarios: ENTER on the title, then centered sticks
 local M = {}
--- frames 1..20: warning -> title (10) -> CENTER (20)
+-- frames 1..20: title -> CENTER (20)
 function M.arm(f)
-  if f == 10 or f == 20 then return 0, 0, 0, 0, "enter" end
+  if f == 20 then return 0, 0, 0, 0, "enter" end
   return 0, 0, 0, 0
 end
 -- frame at which PLAY starts (tick 1) when arm() is used with centered sticks

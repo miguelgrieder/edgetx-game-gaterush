@@ -34,16 +34,16 @@ function M.spawn(now)
   M.v0 = config.SPEEDS[v.SPEED]
   M.sa = config.ACCELS[v.SPEED_ACCEL + 1] / 100
   M.ca = config.ACCELS[v.CURVE_ACCEL + 1] / 100
-  M.scroll = v.TRACK == 2
+  M.scroll = v.TRACK == 2 -- int
   M.couple = (mode < 4 and v.COUPLE > 1) and v.COUPLE or nil
-  if M.couple == 4 and M.scroll then M.couple = 2 end -- upside down makes no sense when scrolling
-  M.on[1], M.on[2] = mode ~= 5, mode ~= 4
-  M.canCrash = mode == 1 or mode >= 4
+  if M.couple == 4 and M.scroll then M.couple = 2 end -- upside down makes no sense when scrolling (int)
+  M.on[1], M.on[2] = mode ~= 5, mode ~= 4 -- int
+  M.canCrash = mode == 1 or mode >= 4 -- int
   M.seed = v.SEED > 0 and v.SEED or now % 99 + 1 -- random runs still get a seed you can replay
   M.t, M.v, M.gates, M.accSum, M.accN, M.anim = 0, M.v0, 0, 0, 0, 0
   M.crashed, M.finished, M.second = nil, nil, -1
   fx.cool = 0
-  fx.haptic = v.HAPTIC == 1
+  fx.haptic = v.HAPTIC == 1 -- int
   draw.prepare(v.SKIN_L, v.SKIN_R)
   local mid = (input.lo + input.hi) / 2
   for side = 1, 2 do
@@ -93,7 +93,7 @@ function M.tick()
       end
       if out then
         -- the cause is fixed when the out-episode starts (the tail passing the quad)
-        if M.outN[side] == 0 then M.outTail[side] = behind end
+        if M.outN[side] == 0 then M.outTail[side] = behind end -- int
         M.outN[side] = M.outN[side] + 1
         anyOut = true
         if M.canCrash and M.outN[side] >= M.limit and not M.crashed then
@@ -119,14 +119,14 @@ function M.tick()
   end
   -- the cooldown keeps running after coming back in, so flicking in and out cannot flood audio/haptic
   if anyOut then fx.alarm() end
-  if M.t >= M.SPRINT and config.v.MODE == 2 then M.finished = true end
+  if M.t >= M.SPRINT and config.v.MODE == 2 then M.finished = true end -- int
 end
 
 function M.ms() return M.t * 50 end
 function M.acc() return M.accN > 0 and floor(100 * M.accSum / M.accN + 0.5) or 100 end
 -- record score: ms (+ gate bonus) or accuracy % in sprint
 function M.score()
-  if config.v.MODE == 2 then return M.acc() end
+  if config.v.MODE == 2 then return M.acc() end -- int
   return M.ms() + M.gates * M.GATE_MS
 end
 
@@ -136,7 +136,7 @@ local function number(n, x, y)
     x = x - 4
     draw.glyph(draw.digit3[n % 10], x, y)
     n = floor(n / 10)
-  until n == 0
+  until n == 0 -- int
   return x
 end
 
@@ -167,7 +167,7 @@ function M.drawWorld()
       track.draw(T, xo, M.v)
       local hy = T.hy - T.cam
       if hy >= 0 then fx.dust(T.hx, hy, math.cos(T.h), math.sin(T.h), track.rad(T, T.head), xo,
-        side == 1 and 63 or 62, T.hover) end
+        side == 1 and 63 or 62, T.hover) end -- int
     end
   end
 end
@@ -179,7 +179,7 @@ function M.drawQuads(frame, skip)
     if M.on[side] and side ~= skip then
       local x, y = floor(M.qx[side] + 0.5) + XO[side], floor(M.qy[side] + 0.5)
       if M.outN[side] > 0 and frame % 4 < 2 then draw.quad(x, y, true)
-      else draw.skin(side == 1 and config.v.SKIN_L or config.v.SKIN_R, x, y, spin) end
+      else draw.skin(side == 1 and config.v.SKIN_L or config.v.SKIN_R, x, y, spin) end -- int
     end
   end
 end
@@ -203,7 +203,7 @@ end
 function M.count(n)
   for side = 1, 2 do
     if M.on[side] then
-      local x = side == 1 and 23 or 88
+      local x = side == 1 and 23 or 88 -- int
       local y = M.qy[side] > 32 and 3 or 38
       lcd.drawFilledRectangle(x, y, 18, 24, ERASE)
       lcd.drawRectangle(x, y, 18, 24, FORCE)
@@ -228,7 +228,7 @@ end
 
 function M.drawHud()
   timer()
-  if config.v.MODE == 3 then
+  if config.v.MODE == 3 then -- int
     draw.glyph(draw.small["%"], 122, 2)
     number(M.acc(), 122, 2)
   else

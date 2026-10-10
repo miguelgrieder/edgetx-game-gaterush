@@ -22,8 +22,20 @@ end
 local main = read("src/main.lua")
 assert(main:match("return { init = init, run = run"), "main.lua must return the script interface")
 write(OUT .. "gaterush.lua", "-- TNS|GateRush|TNE\n-- GateRush (generated from src/ by tools/build.lua; edit the sources)\n" .. main)
+local all = { main }
 for _, name in ipairs(MODULES) do
   local src = read("src/" .. name .. ".lua")
   assert(not src:find("require%("), name .. ": use use(), not require()")
   write(OUT .. "GATERUSH/" .. name .. ".lua", src)
+  all[#all + 1] = src
 end
+
+-- the build's stamp (version + hash of every file): the game forces a recompile of each module the
+-- first time it loads it under a new stamp, so an old .luac can't outlive an update (see main.lua)
+local h, text = 0, table.concat(all)
+for i = 1, #text do h = (h * 31 + text:byte(i)) % 4294967296 end
+local stamp = string.format("%s-%08x", read("src/config.lua"):match('M%.VERSION = "([^"]+)"'), h)
+local f = assert(io.open(OUT .. "GATERUSH/build.txt", "wb"))
+f:write(stamp .. "\n")
+f:close()
+print("stamp " .. stamp)

@@ -1,4 +1,4 @@
-# GateRush
+# GateRush (v0.1.0)
 
 A twin-stick FPV warm-up game for **EdgeTX radios with a 128×64 black & white screen** (Radiomaster TX12 /
 TX12 MK2 / Boxer / Pocket / GX12 / Zorro, Jumper T-Pro / T-Lite / T20 — the `PCB=X7` family).
@@ -26,20 +26,24 @@ for too long and you crash. Score = time alive + 2 s per gate.
 
 The game is split into small files that the radio compiles one by one (each gets a `.luac` next to it the
 first time: the first launch and the first run take a moment). Only the menu files or the play files are in
-memory at a time. When updating, copy all files again; the radio recompiles the ones that changed.
+memory at a time. When updating, copy all files again. The radio keeps using a `.luac` that is newer than its
+`.lua`, so the game recompiles each of its modules once per new build by itself (`GATERUSH/build.txt` holds the
+build's stamp, `compiled.txt` what was recompiled); only `gaterush.luac` next to `gaterush.lua` is EdgeTX's own,
+so **delete `SCRIPTS/TOOLS/gaterush.luac`** when updating. If the radio says "not enough memory" the first time it
+compiles, open the game again: the files already compiled load from their `.luac`, which needs much less memory.
+The version is shown at the top right of the title.
 The `GATERUSH/` folder is required (it holds the game); if the saves can't be written the title shows
 **NO SAVE** instead of the mode and preset.
 
-## RF warning
+## Safety
 
-The radio **keeps transmitting your sticks to the bound model while you play**. The first screen says so
-(with the current model's name): disarm, or better, power the model off, before pressing ENT.
+The radio **keeps transmitting your sticks to the bound model while you play**: disarm, or better, power the
+model off, before starting the game.
 
 ## Controls
 
 | where | key | action |
 |---|---|---|
-| RF warning | ENT | I know, continue · RTN quits |
 | title | ENT | arm (go to CENTER STICKS) |
 | title | hold ENT | settings |
 | title | RTN | exit the script |
@@ -123,6 +127,7 @@ sprite sheet). The props of DISC, XFRM, PODS and BLADE spin, faster as the head 
 | LEFT QUAD / RIGHT QUAD | 8 designs | DISC / XFRM | quad design per hand |
 | HAPTIC | ON/OFF | ON | vibration when out |
 | STICK MODE | 1–4 | radio's mode on EdgeTX 3.0+, else 2 | which sticks drive which half (set it to your radio's stick mode) |
+| DEBUG | ON/OFF | OFF | while playing: live frame rate (FPS, 20 is the most an EdgeTX script gets) at the bottom left, Lua memory in KB at the bottom right |
 | RESET BEST | — | — | ENT, then ENT again (`ENT?`) clears the record of the current configuration |
 | EXIT | — | — | save and back to the title |
 

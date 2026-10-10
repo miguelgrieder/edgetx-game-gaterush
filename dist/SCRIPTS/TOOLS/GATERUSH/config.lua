@@ -1,6 +1,7 @@
 -- Settings: ranges, defaults, tuning tables, .cfg persistence, difficulty key.
 local M = {}
 
+M.VERSION = "v0.1.0" -- shown on the title screen
 M.DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 M.FILE = M.DIR .. "gaterush.cfg"
 
@@ -31,6 +32,7 @@ M.ITEMS = {
   { key = "SKIN_R", name = "RIGHT QUAD", lo = 1, hi = 8, def = 3, names = M.SKINS },
   { key = "HAPTIC", name = "HAPTIC", lo = 0, hi = 1, def = 1, names = { "OFF", "ON" } },
   { key = "STICK_MODE", name = "STICK MODE", lo = 1, hi = 4, def = 2 },
+  { key = "DEBUG", name = "DEBUG", lo = 0, hi = 1, def = 0, names = { "OFF", "ON" } }, -- FPS and Lua KB in play
 }
 
 M.v = {}

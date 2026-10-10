@@ -3,7 +3,7 @@
 local T = dofile("tests/t.lua")
 local FB = T.H.mock.FB
 
-local SCREENS = { "00_rf_warning", "01_title", "02_center_sticks", "03_countdown", "04_play_start",
+local SCREENS = { "01_title", "02_center_sticks", "03_countdown", "04_play_start",
   "05_play_out_tolerance", "06_play_final", "07_pause", "08_resume_countdown", "09_crashed",
   "10_settings_p1", "11_settings_p2", "12_settings_p3", "13_scroll", "14_coupled", "15_sprint_finish",
   "16_zen", "17_wreck", "18_practice_left", "19_skins", "20_stop_reverse" }

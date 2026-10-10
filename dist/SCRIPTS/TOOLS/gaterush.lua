@@ -7,11 +7,37 @@
 local DIR = "/SCRIPTS/TOOLS/GATERUSH/"
 local loaded = {}
 
+-- EdgeTX runs a file's .luac when it is newer than the .lua, so after an update the radio could keep
+-- running the previous version. build.txt holds the build's stamp (tools/build.lua); compiled.txt that
+-- stamp and the modules already recompiled for it. A module's first load under a new stamp forces the
+-- recompile ("c").
+local function readText(name)
+  local f = io.open(DIR .. name, "r")
+  if not f then return "" end
+  local s = io.read(f, 400)
+  io.close(f)
+  return s or ""
+end
+local stamp = string.match(readText("build.txt"), "%S+") -- nil: no build file (tests from src/)
+local done = readText("compiled.txt")
+if stamp and string.match(done, "^%S*") ~= stamp then
+  done = stamp .. "\n"
+  local f = io.open(DIR .. "compiled.txt", "w")
+  if f then io.write(f, done) io.close(f) end
+end
+
 local function use(name)
   local m = loaded[name]
   if not m then
-    local chunk, err = loadScript(DIR .. name .. ".lua")
+    local fresh = not stamp or string.find(done, "\n" .. name .. "\n", 1, true)
+    collectgarbage() -- compiling is the memory peak: start it with the garbage gone
+    local chunk, err = loadScript(DIR .. name .. ".lua", fresh and "bt" or "btc")
     if not chunk then error(err) end
+    if not fresh then
+      done = done .. name .. "\n"
+      local f = io.open(DIR .. "compiled.txt", "a")
+      if f then io.write(f, name, "\n") io.close(f) end
+    end
     m = chunk(use)
     loaded[name] = m
   end
@@ -21,12 +47,13 @@ end
 local config, input = use("config"), use("input")
 local menus, game
 
-local WARN, TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED, WRECK = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+local TITLE, SETTINGS, CENTER, COUNTDOWN, PLAY, PAUSE, RESUME, CRASHED, WRECK = 2, 3, 4, 5, 6, 7, 8, 9, 10 -- (1 was the RF warning)
 
-local state, last, acc, frame = WARN, 0, 0, 0
+local state, last, acc, frame = TITLE, 0, 0, 0
 local ignoreUntil = 0
 local eatEnter = false -- the ENTER release that follows a long press
-local saveOk, modelName = true, nil
+local saveOk = true
+local frameTicks = 5 -- smoothed time between frames (10 ms units), for the DEBUG frame rate
 local hold = { 0, 0 }
 local count = 0 -- countdown / crash animation ticks
 
@@ -98,9 +125,7 @@ local function countdown(steps)
 end
 
 local function update(e, steps)
-  if state == WARN then
-    if isEnter(e) then go(TITLE) elseif isExit(e) then return 1 end
-  elseif state == TITLE then
+  if state == TITLE then
     if isLong(e) then
       killEvents(e)
       eatEnter = true
@@ -157,8 +182,7 @@ end
 
 local function render()
   lcd.clear()
-  if state == WARN then menus.warn(modelName)
-  elseif state == TITLE then menus.title()
+  if state == TITLE then menus.title()
   elseif state == SETTINGS then menus.settings()
   elseif state == CENTER then menus.centerSticks(hold[1] / 10, hold[2] / 10)
   elseif state == CRASHED then menus.result()
@@ -170,6 +194,13 @@ local function render()
     end
     if state == WRECK then game.drawDebris(count) else game.drawQuads(frame) end
     if state ~= COUNTDOWN then game.drawHud() end
+    if config.v.DEBUG == 1 then
+      -- live frame rate and Lua memory (getUsage() on B&W radios is the slowest frame since the start)
+      lcd.drawNumber(12, 57, math.floor(100 / frameTicks + 0.5), SMLSIZE)
+      lcd.drawText(lcd.getLastRightPos() + 1, 57, "FPS", SMLSIZE)
+      lcd.drawNumber(110, 57, math.floor(collectgarbage("count")), SMLSIZE + RIGHT)
+      lcd.drawText(111, 57, "KB", SMLSIZE)
+    end
     if state == PAUSE then game.pause()
     elseif state == WRECK and count >= 10 then lcd.drawFilledRectangle(0, 0, LCD_W, LCD_H) end -- flash
   end
@@ -179,10 +210,6 @@ local function init()
   config.load()
   saveOk = config.save()
   input.setRange(config.radius())
-  if model and model.getInfo then
-    local ok, info = pcall(model.getInfo)
-    if ok and info and info.name and info.name ~= "" then modelName = string.upper(string.sub(info.name, 1, 11)) end
-  end
   menuMode()
   last = getTime()
   ignoreUntil = last + 40
@@ -190,6 +217,7 @@ end
 
 local function run(event)
   local now = getTime()
+  frameTicks = frameTicks * 0.9 + (now - last) * 0.1
   acc = acc + now - last
   last = now
   if acc > 20 then acc = 20 end

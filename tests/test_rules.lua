@@ -108,9 +108,7 @@ end)
 -- full app: menus -> CENTER -> countdown -> PLAY
 local function toPlay(o)
   local h = T.H.new(o or { sd = "t_rules_app" })
-  h.wait(10)
-  h.step(0, 0, 0, 0, "enter")
-  h.wait(8)
+  h.wait(19)
   h.step(0, 0, 0, 0, "enter")
   for _ = 1, 100 do
     h.step()

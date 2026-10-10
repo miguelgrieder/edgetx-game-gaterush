@@ -66,7 +66,7 @@ end)
 T.test("leaving the settings applies the new MARGIN to the stick mapping", function()
   local h = T.H.new({ sd = "t_input_menu" })
   h.wait(10)
-  h.step(0, 0, 0, 0, "enter") -- warning -> title
+  h.step(0, 0, 0, 0) -- (the game opens on the title)
   h.wait(10)
   h.step(0, 0, 0, 0, "long")
   h.step(0, 0, 0, 0, "enter") -- release after the long press is swallowed

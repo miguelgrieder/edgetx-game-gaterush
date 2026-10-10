@@ -46,10 +46,10 @@ function B.new(o)
   end
 
   return function(frame, _, ctx)
-    -- menus (warning 1, title 2, center sticks 4, result 9): ENTER through, sticks centered
+    -- menus (title 2, center sticks 4, result 9): ENTER through, sticks centered
     local st = ctx.h.app.state()
     if st <= 4 or st == 9 then
-      if st <= 2 and (frame == 10 or frame == 20) then return 0, 0, 0, 0, "enter" end
+      if st <= 2 and frame == 20 then return 0, 0, 0, 0, "enter" end
       if st == 9 and o.rearm then
         phaseT = phaseT + 1
         if phaseT == 15 then phaseT = 0; return 0, 0, 0, 0, "enter" end

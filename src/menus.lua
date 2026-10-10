@@ -77,15 +77,6 @@ function M.refresh()
   sub = M.saveOk and config.MODES[v.MODE] .. "  " .. config.PRESETS[v.PRESET] or "NO SAVE"
 end
 
-function M.warn(modelName)
-  center(2, "RF WARNING", DBLSIZE)
-  rule()
-  center(22, "RADIO KEEPS SENDING")
-  center(31, "STICKS TO " .. (modelName or "YOUR MODEL"))
-  center(40, "DISARM / POWER OFF")
-  boxed(51, "[ENT] I KNOW")
-end
-
 -- 11x11 quad silhouette for the title
 local function icon(x, y)
   lcd.drawFilledRectangle(x - 1, y - 1, 3, 3, FORCE)
@@ -104,6 +95,7 @@ M.icon = icon
 
 function M.title()
   center(3, "GATERUSH", DBLSIZE)
+  lcd.drawText(127, 0, config.VERSION, SMLSIZE + RIGHT)
   center(21, sub)
   icon(27, 37)
   icon(100, 37)

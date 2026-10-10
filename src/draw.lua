@@ -114,8 +114,8 @@ local function spin(rows)
       local cx, cy = x <= 2 and 1 or (x >= 8 and 9 or 0), y <= 2 and 1 or (y >= 8 and 9 or 0)
       if cx > 0 and cy > 0 then
         local full = true
-        for yy = math.min(cy, cy == 1 and 2 or 8), math.max(cy, cy == 1 and 2 or 8) do
-          for xx = math.min(cx, cx == 1 and 2 or 8), math.max(cx, cx == 1 and 2 or 8) do
+        for yy = math.min(cy, cy == 1 and 2 or 8), math.max(cy, cy == 1 and 2 or 8) do -- int
+          for xx = math.min(cx, cx == 1 and 2 or 8), math.max(cx, cx == 1 and 2 or 8) do -- int
             if string.sub(rows[yy], xx, xx) ~= "#" then full = false end
           end
         end
@@ -136,13 +136,13 @@ function M.prepare(a, b)
     if k ~= a and k ~= b then M.skins[k] = nil end
   end
   for _, n in ipairs({ a, b }) do
-    if not M.skins[n] then M.skins[n] = { rects(SKINS[n], 1), rects(n == 1 and DISC2 or spin(SKINS[n]), 1) } end
+    if not M.skins[n] then M.skins[n] = { rects(SKINS[n], 1), rects(n == 1 and DISC2 or spin(SKINS[n]), 1) } end -- int
   end
 end
 
 -- skin n at (x, y), frame 1 or 2: clear the disc under it, then the sprite
 function M.skin(n, x, y, frame)
-  if n == 1 and frame == 1 then return M.quad(x, y) end
+  if n == 1 and frame == 1 then return M.quad(x, y) end -- int
   for i = 1, #DISC, 4 do
     lcd.drawFilledRectangle(x + DISC[i], y + DISC[i + 1], DISC[i + 2], DISC[i + 3], ERASE)
   end

@@ -11,7 +11,8 @@ local EVENTS = {
   next = "EVT_VIRTUAL_NEXT", prev = "EVT_VIRTUAL_PREV",
 }
 
--- opts: target ("src" | "dist"), sd (name), noSaveFolder, stickMode, modelName, noLegacy
+-- opts: target ("src" | "dist"), sd (name), noSaveFolder, stickMode, modelName, noLegacy,
+-- files ({ ["/SCRIPTS/..."] = text } written on the SD before the script loads)
 function H.new(opts)
   opts = opts or {}
   local sdroot = mock.sd(opts.sd or "default", not opts.noSaveFolder)
@@ -19,19 +20,32 @@ function H.new(opts)
   local S = mock.install({ sdroot = sdroot, stickMode = opts.stickMode, modelName = opts.modelName or "",
     noLegacy = opts.noLegacy, clock = opts.clock or 1000, fast = opts.fast,
     scriptDir = dist and "dist/SCRIPTS/TOOLS/GATERUSH/" or "src/" })
+  for path, text in pairs(opts.files or {}) do
+    local f = assert(S.realio.open(sdroot .. path, "wb"))
+    f:write(text)
+    f:close()
+  end
   local h = { S = S, frame = 0, lastCalls = 0 }
   -- libraries a tool script does not get on the radio (verified in the firmware simulator)
   local HIDDEN = { "table", "os", "debug", "coroutine" }
   local saved = {}
   -- EdgeTX does not set the string metatable: ("x"):sub() fails on the radio
   local smeta = getmetatable("")
+  -- the game's collectgarbage("count") (DEBUG readout) is fixed so goldens stay deterministic
+  local realGC = collectgarbage
+  local function fakeGC(opt, ...)
+    if opt == "count" then return 42 end
+    return realGC(opt, ...)
+  end
   local function radio(f, ...)
+    rawset(_G, "collectgarbage", fakeGC)
     for _, k in ipairs(HIDDEN) do saved[k] = rawget(_G, k); rawset(_G, k, nil) end
     local sidx = smeta.__index
     smeta.__index = nil
     local ok, r = pcall(f, ...)
     smeta.__index = sidx
     for _, k in ipairs(HIDDEN) do rawset(_G, k, saved[k]) end
+    rawset(_G, "collectgarbage", realGC)
     if not ok then error(r, 0) end
     return r
   end

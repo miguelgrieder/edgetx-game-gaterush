@@ -122,7 +122,7 @@ local function bend(T, v, kmax, rmin)
   if m == CURVE then return T.mk end
   if m == ESS then return t * 2 > T.m0 and T.mk or -T.mk end
   if m == SLALOM then return sg * kmax * sin(t * 0.35) end
-  if m == ZIGZAG then return t % 8 < 3 and (floor(t / 8) % 2 == 0 and sg or -sg) / rmin or 0 end
+  if m == ZIGZAG then return t % 8 < 3 and (floor(t / 8) % 2 == 0 and sg or -sg) / rmin or 0 end -- int
   if m == SPIRAL then return sg * (kmax + (1 / rmin - kmax) * (1 - t / T.m0)) end
   if m == HAIRPIN then
     T.mp = T.mp + v / rmin -- turned angle
@@ -135,7 +135,7 @@ end
 -- STOP: hover, reverse (the head eats its tunnel back), hover, then branch off; true = no new point
 local function stop(T)
   T.mt = T.mt - 1
-  if T.mp == 2 then
+  if T.mp == 2 then -- int
     if T.mt >= 0 and T.head - T.tail + 1 > M.MINLEN then
       T.head = T.head - 1
       local i, j = idx(T.head), idx(T.head - 1)
@@ -149,7 +149,7 @@ local function stop(T)
   end
   T.hover = true
   if T.mt > 0 then return true end
-  if T.mp == 1 then
+  if T.mp == 1 then -- int
     T.mp, T.mt = 2, 6 + floor(rnd(T) * 10)
     return true
   end
@@ -191,7 +191,7 @@ function M.step(T, v, kmax, lo, hi, rmin, tsec)
   elseif y < lo then y = lo elseif y > hi then y = hi end
   -- chokes: every few seconds the next 5 points narrow, the middle one is a gate
   local C = T.chokes
-  if T.gc == 0 then
+  if T.gc == 0 then -- int
     T.gt = T.gt - 1
     if T.gt <= 0 and T.man ~= STOP then
       T.gc, T.gt = 5, 60 + floor(rnd(T) * 40)
@@ -201,7 +201,7 @@ function M.step(T, v, kmax, lo, hi, rmin, tsec)
   put(T, x, y, h)
   if T.gc > 0 then
     T.gc = T.gc - 1
-    if T.gc == 2 then
+    if T.gc == 2 then -- int
       T.gates[#T.gates + 1] = T.head
       T.newGate = T.head
     end
@@ -218,8 +218,8 @@ function M.copy(D, S, mode, mid2)
   D.rt = S.rt
   local i = idx(S.head)
   local x, y, h = S.x[i], S.y[i], S.h
-  if mode ~= 3 then x, h = mid2 - x, pi - h end
-  if mode == 4 then y, h = mid2 - y, -h end
+  if mode ~= 3 then x, h = mid2 - x, pi - h end -- int
+  if mode == 4 then y, h = mid2 - y, -h end -- int
   D.x[i], D.y[i], D.hx, D.hy, D.h = x, y, x, y, h
   local SC, DC = S.chokes, D.chokes
   for k = 1, #SC do DC[k] = SC[k] end
@@ -260,7 +260,7 @@ function M.draw(T, xo, v)
   local lx, ly, rx, ry, pa, pr
   for n = first, head do
     local r = rad(T, n)
-    if n == first or n == head or n % stride == 0 or r ~= pr then
+    if n == first or n == head or n % stride == 0 or r ~= pr then -- int
       local i = idx(n)
       local c, s = dir(T, n, first, head)
       local x, y, ox, oy = X[i] + xo, Y[i] - yo, -s * r, c * r

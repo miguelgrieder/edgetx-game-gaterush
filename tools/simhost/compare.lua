@@ -22,14 +22,13 @@ end
 
 -- reference screens: sequence of {frames, event} steps on the mock with the simulator's radio setup
 local REFS = {
-  { "warning (model name)", { { 5 } } },
-  { "title (no best)", { { 10 }, { 1, "enter" }, { 10 } } },
-  { "settings p1, MODE selected", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" } } },
-  { "settings p1, editing <SPRINT>", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" },
+  { "title (no best)", { { 21 } } },
+  { "settings p1, MODE selected", { { 21 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" } } },
+  { "settings p1, editing <SPRINT>", { { 21 }, { 1, "long" }, { 1, "enter" }, { 8 }, { 1, "next" },
     { 1, "enter" }, { 1, "next" } } },
-  { "settings p2, MARGIN", { { 10 }, { 1, "enter" }, { 10 }, { 1, "long" }, { 1, "enter" }, { 8 },
+  { "settings p2, MARGIN", { { 21 }, { 1, "long" }, { 1, "enter" }, { 8 },
     { 1, "next" }, { 1, "enter" }, { 1, "next" }, { 1, "enter" }, { 1, "next" }, { 1, "next" }, { 1, "next" }, { 1, "next" } } },
-  { "center sticks, both bars full", { { 10 }, { 1, "enter" }, { 10 }, { 1, "enter" }, { 9 } } },
+  { "center sticks, both bars full", { { 21 }, { 1, "enter" }, { 9 } } },
 }
 
 local out = io.stdout
