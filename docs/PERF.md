@@ -1,5 +1,16 @@
 # Performance
 
+> **v0.1.0 speed round (from FlyFPV's):** Lua work per play frame, mean over 6 bot scenarios
+> (`lua5.2 tools/bench.lua`, lcd calls swapped for an empty C function as on the radio): **17.9k -> 13.3k
+> instructions (-26 %)**, C calls 520-790 -> 240-380 (about half: the math library calls are gone from the
+> drawing), the worst frame of perf_worst 50.9k -> 31.5k (-38 %). Every frame of every scenario draws the same
+> pixels before and after (`tools/samepix.lua`, 13,104 frames). What did it: the outline rounds with
+> `v - v % 1` instead of `math.floor`, walks the chokes once instead of a `rad()` loop per point, has `idx()`,
+> `dir()`, `age()` and the on-screen line check inline; the distance scan carries each segment's end (point and
+> radius) to the next; the dust's 19 angles have their cos/sin worked out once. Tried and dropped: visiting
+> only the points that get a vertex (more bookkeeping than it saved at normal speeds). `PROFILE=1
+> lua5.2 tools/bench.lua` shows where the instructions go.
+
 > **Third update (split into files):** compile allocations per file ≤ 69 KB (single file was 271 KB);
 > resident heap: menus 64 KB, play 129 KB; worst case 279 draw calls; 100-game soak flat. See DECISIONS.
 
@@ -18,7 +29,6 @@ Max includes every frame of the scenario (menus included); avg is over the whole
 
 | scenario | frames | max | avg |
 |---|---|---|---|
-| 00_rf_warning | 5 | 9 | 9 |
 | 01_title | 20 | 48 | 30 |
 | 02_center_sticks | 25 | 48 | 27 |
 | 03_countdown | 40 | 83 | 42 |
