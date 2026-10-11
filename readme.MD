@@ -194,7 +194,7 @@ and Python 3 with Pillow for PNG output.
 ### Layout
 
 ```
-src/        config, stats, draw, input, track, fx, game, screens, main
+src/        config, stats, draw, input, track, fx, game, menus, color (colour screens), main
 tools/      build.lua, harness.lua, run_frames.lua, bot.lua, calibrate.lua, soak.lua, snapshot.py,
             mock/ (API mock, framebuffer, firmware fonts), simhost/ (real firmware host)
 tests/      test_*.lua, golden/
