@@ -35,10 +35,9 @@ function M.spawn(now)
   M.sa = config.ACCELS[v.SPEED_ACCEL + 1] / 100
   M.ca = config.ACCELS[v.CURVE_ACCEL + 1] / 100
   M.scroll = v.TRACK == 2 -- int
-  M.couple = (mode < 4 and v.COUPLE > 1) and v.COUPLE or nil
-  if M.couple == 4 and M.scroll then M.couple = 2 end -- upside down makes no sense when scrolling (int)
+  M.couple = config.couple() -- (upside down makes no sense when scrolling: INVERT plays as MIRROR)
   M.on[1], M.on[2] = mode ~= 5, mode ~= 4 -- int
-  M.canCrash = mode == 1 or mode >= 4 -- int
+  M.canCrash = config.crashes()
   M.seed = v.SEED > 0 and v.SEED or now % 99 + 1 -- random runs still get a seed you can replay
   M.t, M.v, M.gates, M.accSum, M.accN, M.anim = 0, M.v0, 0, 0, 0, 0
   M.crashed, M.finished, M.second = nil, nil, -1

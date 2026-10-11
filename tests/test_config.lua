@@ -107,10 +107,16 @@ T.test("mode, scroll and coupling get their own records; skins and seed do not",
   local _, c, m = setup()
   c.defaults()
   local base = c.hash()
+  local nocrash = base:gsub("d%d+", "d0") -- SPRINT can't crash: its CRASH DELAY does not split records
   c.v.MODE = 2
-  T.eq(c.hash(), base .. "M2")
+  T.eq(c.hash(), nocrash .. "M2")
   c.v.TRACK, c.v.COUPLE = 2, 3
-  T.eq(c.hash(), base .. "M2SC3")
+  T.eq(c.hash(), nocrash .. "M2SC3")
+  -- settings the run ignores don't split records: coupling in LEFT practice, INVERT scrolling = MIRROR
+  c.v.MODE, c.v.TRACK, c.v.COUPLE = 4, 1, 2
+  T.eq(c.hash(), base .. "M4") T.eq(c.couple(), nil)
+  c.v.MODE, c.v.TRACK, c.v.COUPLE = 1, 2, 4
+  T.eq(c.hash(), base .. "SC2") T.eq(c.couple(), 2)
   c.defaults()
   c.v.SKIN_L, c.v.SKIN_R, c.v.SEED = 5, 6, 42
   T.eq(c.hash(), base)

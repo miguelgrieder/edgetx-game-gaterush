@@ -57,12 +57,23 @@ end
 
 function M.radius() return 4 + M.v.MARGIN end
 
--- record key, e.g. m2d5s4a2c5t25 (+ M2 for a mode, S for scroll, C2 for coupled hands)
-function M.hash()
+-- what a run really uses, for game.spawn and the record key alike (a setting the run ignores must not
+-- split the records): the coupling (nil in LEFT / RIGHT practice; INVERT plays as MIRROR when scrolling)
+-- and whether it can crash (not in SPRINT or ZEN, so CRASH DELAY does nothing there)
+function M.couple()
   local v = M.v
-  return "m" .. v.MARGIN .. "d" .. v.CRASH_DELAY .. "s" .. v.SPEED .. "a" .. v.SPEED_ACCEL
+  if v.MODE >= 4 or v.COUPLE < 2 then return nil end
+  if v.COUPLE == 4 and v.TRACK == 2 then return 2 end -- int
+  return v.COUPLE
+end
+function M.crashes() return M.v.MODE == 1 or M.v.MODE >= 4 end -- int
+
+-- record key, e.g. m2d5s4a2c5t25 (+ M2 for a mode, S for scroll, C2 for coupled hands; d0 when it can't crash)
+function M.hash()
+  local v, c = M.v, M.couple()
+  return "m" .. v.MARGIN .. "d" .. (M.crashes() and v.CRASH_DELAY or 0) .. "s" .. v.SPEED .. "a" .. v.SPEED_ACCEL
     .. "c" .. v.CURVE_ACCEL .. "t" .. v.TRACK_LEN .. (v.MODE > 1 and "M" .. v.MODE or "")
-    .. (v.TRACK > 1 and "S" or "") .. (v.COUPLE > 1 and "C" .. v.COUPLE or "")
+    .. (v.TRACK > 1 and "S" or "") .. (c and "C" .. c or "")
 end
 
 -- apply "KEY=value" lines; invalid or out-of-range lines are ignored

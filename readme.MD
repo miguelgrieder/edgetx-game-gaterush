@@ -144,7 +144,9 @@ just means defaults.
 Records are kept **per configuration**: MARGIN, CRASH DELAY, SPEED, SPEED ACCEL, CURVE ACCEL and TRACK LEN form a
 key (e.g. `m2d5s4a2c5t25`), plus the MODE, SCROLL and COUPLE when they are not the default
 (`m2d5s4a2c5t25M2SC2`). Changing any of them shows the BEST of that configuration (`BEST --:--` when it has none
-yet). Quads, seed, HAPTIC and STICK MODE do not split the records. AVG is the average of all finished runs with
+yet). Only what the run really uses counts: COUPLE is left out in LEFT / RIGHT practice, INVERT while scrolling is
+kept as MIRROR (it plays as one), and CRASH DELAY is `d0` in SPRINT, where you can't crash. Quads, seed, HAPTIC and
+STICK MODE do not split the records. AVG is the average of all finished runs with
 that configuration. Stored in `/SCRIPTS/TOOLS/GATERUSH/gaterush.dat`.
 
 ## Development
