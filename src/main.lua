@@ -25,6 +25,13 @@ if stamp and string.match(done, "^%S*") ~= stamp then
   if f then io.write(f, done) io.close(f) end
 end
 
+-- a module recompiled under this build's stamp: noted in done and in compiled.txt
+local function markDone(name)
+  done = done .. name .. "\n"
+  local f = io.open(DIR .. "compiled.txt", "a")
+  if f then io.write(f, name, "\n") io.close(f) end
+end
+
 local function use(name)
   local m = loaded[name]
   if not m then
@@ -32,11 +39,7 @@ local function use(name)
     collectgarbage() -- compiling is the memory peak: start it with the garbage gone
     local chunk, err = loadScript(DIR .. name .. ".lua", fresh and "bt" or "btc")
     if not chunk then error(err) end
-    if not fresh then
-      done = done .. name .. "\n"
-      local f = io.open(DIR .. "compiled.txt", "a")
-      if f then io.write(f, name, "\n") io.close(f) end
-    end
+    if not fresh then markDone(name) end
     m = chunk(use)
     loaded[name] = m
   end
@@ -238,9 +241,7 @@ local function run(event)
     local chunk, err = loadScript(DIR .. name .. ".lua", "btc")
     if not chunk then error(err) end
     chunk = nil
-    done = done .. name .. "\n"
-    local f = io.open(DIR .. "compiled.txt", "a")
-    if f then io.write(f, name, "\n") io.close(f) end
+    markDone(name)
     lcd.clear()
     lcd.drawText(64, 28, "PREPARING " .. np .. "/" .. #pending, CENTER)
     if np == #pending then menuMode() end
