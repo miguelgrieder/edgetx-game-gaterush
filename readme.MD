@@ -45,8 +45,8 @@ model off, before starting the game.
 
 | where | key | action |
 |---|---|---|
-| title | ENT | arm (go to CENTER STICKS) |
-| title | hold ENT | settings |
+| title | scroll · ENT | a menu: PLAY (go to CENTER STICKS) / SETTINGS / EXIT; PLAY is picked at first |
+| title | hold ENT | settings (shortcut) |
 | title | RTN | exit the script |
 | center sticks | — | hold all four axes within ±8 % for 0.5 s (both bars full) → 3-2-1 countdown |
 | play | RTN | pause |
