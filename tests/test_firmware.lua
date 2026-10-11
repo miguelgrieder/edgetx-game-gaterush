@@ -63,10 +63,11 @@ T.test("DEBUG shows the frame rate and the Lua memory while playing", function()
 end)
 
 T.test("a new build compiles its modules one per frame before the menus load, then plays from the .luac", function()
-  local h = T.H.new({ sd = "t_prep", files = { [DIR .. "build.txt"] = "v9-1\nconfig\ninput\nstats\nmenus\ndraw\nfx\ntrack\ngame\n" } })
+  local h = T.H.new({ sd = "t_prep", files = { [DIR .. "build.txt"] = "v9-1\ncolor\nconfig\ninput\nstats\nmenus\ndraw\nfx\ntrack\ngame\n" } })
   local function modes() return table.concat(h.S.loadModes, " ") end
   T.eq(modes(), "config:btc input:btc") -- nothing else loaded yet: each compile has the memory to itself
   h.wait(6)
+  -- (color is never compiled on a B&W radio: it is only for colour screens)
   T.ok(modes():find("^config:btc input:btc stats:btc menus:btc draw:btc fx:btc track:btc game:btc menus:bt"), modes())
   h.wait(14)
   T.eq(h.app.state(), 2) -- the title

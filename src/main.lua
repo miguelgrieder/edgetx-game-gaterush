@@ -53,7 +53,10 @@ local config, input = use("config"), use("input")
 -- else is loaded: compiling is the memory peak (a Pocket ran out of it), loading the .luac later is not
 local pending, np = {}, 0
 for name in string.gmatch(build, "\n(%S+)") do
-  if not string.find(done, "\n" .. name .. "\n", 1, true) then pending[#pending + 1] = name end
+  -- (color is never loaded on a B&W radio; on a colour one it was loaded, and marked done, above)
+  if not string.find(done, "\n" .. name .. "\n", 1, true) and (name ~= "color" or LCD_W > 212) then
+    pending[#pending + 1] = name
+  end
 end
 local menus, game
 
