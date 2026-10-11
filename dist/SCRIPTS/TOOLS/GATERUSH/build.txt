@@ -1,4 +1,4 @@
-v0.1.2-578fdaa2
+v0.1.2-c9485fbd
 color
 config
 input

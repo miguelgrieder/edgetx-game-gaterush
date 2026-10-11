@@ -47,6 +47,7 @@ end
 
 M.saveOk = true
 M.sel, M.editing, M.confirm = 1, false, false
+M.tsel = 1 -- the title's menu: 1 PLAY, 2 SETTINGS, 3 EXIT
 local best, sub = "", ""
 local res = {} -- result screen: title, lines, rec, newBest
 
@@ -93,15 +94,19 @@ local function icon(x, y)
 end
 M.icon = icon
 
+local TITLE_ITEMS = { "PLAY", "SETTINGS", "EXIT" }
+
+-- a menu like every EdgeTX tool's (the scroll wheel moves, ENT picks), so SETTINGS is in plain sight
 function M.title()
   center(3, "GATERUSH", DBLSIZE)
   lcd.drawText(127, 0, config.VERSION, SMLSIZE + RIGHT)
-  center(21, sub)
-  icon(27, 37)
-  icon(100, 37)
-  center(34, best)
-  center(46, "ENT:ARM  RTN:EXIT")
-  center(56, "HOLD ENT: SETTINGS")
+  center(21, sub .. "  " .. best, SMLSIZE)
+  icon(22, 46)
+  icon(105, 46)
+  for i = 1, 3 do
+    local y, s = 19 + 11 * i, TITLE_ITEMS[i]
+    if i == M.tsel then boxed(y, s) else center(y + 2, s) end
+  end
 end
 
 M.MENU = {} -- config items + RESET BEST + EXIT

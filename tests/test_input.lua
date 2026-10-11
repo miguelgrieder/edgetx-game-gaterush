@@ -81,3 +81,24 @@ T.test("leaving the settings applies the new MARGIN to the stick mapping", funct
   h.step(0, 0, 0, 0, "exit")
   T.eq(h.input.lo, 4 + 4 + 2)
 end)
+
+T.test("title menu: PLAY by default, scroll to SETTINGS or EXIT and press ENT", function()
+  local h = T.H.new({ sd = "t_title_menu" })
+  h.wait(10)
+  h.step(0, 0, 0, 0) -- (the game opens on the title)
+  h.wait(10)
+  local menus = h.app.use("menus")
+  T.eq(h.app.state(), 2) T.eq(menus.tsel, 1)
+  h.step(0, 0, 0, 0, "next")
+  T.eq(menus.tsel, 2)
+  h.step(0, 0, 0, 0, "enter")
+  T.eq(h.app.state(), 3) -- settings
+  h.wait(10)
+  h.step(0, 0, 0, 0, "exit")
+  T.eq(h.app.state(), 2)
+  T.eq(menus.tsel, 1) -- back on the title, ENT plays again
+  h.wait(10)
+  h.step(0, 0, 0, 0, "prev") -- wraps round to EXIT
+  T.eq(menus.tsel, 3)
+  T.eq(h.step(0, 0, 0, 0, "enter"), 1) -- the tool closes
+end)

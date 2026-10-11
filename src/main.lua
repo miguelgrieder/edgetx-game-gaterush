@@ -108,7 +108,7 @@ local function go(s)
   state = s
   ignoreUntil = getTime() + 30
   if s >= COUNTDOWN and s ~= CRASHED then playMode() else menuMode() end
-  if s == TITLE then menus.refresh() end
+  if s == TITLE then menus.refresh() menus.tsel = 1 end -- back on the title, ENT plays again
   if s == CENTER then hold[1], hold[2] = 0, 0 end
   if s == COUNTDOWN then game.spawn(getTime()) end
   if s == COUNTDOWN or s == RESUME then count = 0 end
@@ -133,12 +133,20 @@ end
 
 local function update(e, steps)
   if state == TITLE then
+    -- the menu (PLAY, SETTINGS, EXIT); holding ENT still opens the settings as a shortcut
     if isLong(e) then
       killEvents(e)
       eatEnter = true
       menus.sel, menus.editing, menus.confirm = 1, false, false
       go(SETTINGS)
-    elseif isEnter(e) then go(CENTER)
+    elseif isNext(e) then menus.tsel = menus.tsel % 3 + 1
+    elseif isPrev(e) then menus.tsel = (menus.tsel + 1) % 3 + 1
+    elseif isEnter(e) then
+      if menus.tsel == 1 then go(CENTER)
+      elseif menus.tsel == 2 then
+        menus.sel, menus.editing, menus.confirm = 1, false, false
+        go(SETTINGS)
+      else return 1 end
     elseif isExit(e) then return 1 end
   elseif state == SETTINGS then
     local ev = isNext(e) and "next" or isPrev(e) and "prev" or isEnter(e) and "enter" or isExit(e) and "exit"
