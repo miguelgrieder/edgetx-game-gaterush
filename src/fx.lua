@@ -44,6 +44,5 @@ function M.dust(x, y, c, s, rt, xo, xmax, gather)
   end
 end
 
-function M.reseed(n) seed = n % 2147483646 + 1 end
 
 return M

@@ -34,7 +34,6 @@ local function rects(rows, scale)
   end
   return out
 end
-M.rects = rects
 
 -- 3x5 HUD font (from the mockup renderer)
 local F3 = {
